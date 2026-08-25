@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <script src="/main.js"></script>
+  <script src="/main_info.js"></script>
+  <script src="/i18n.js"></script>
+  <script>
+  window.addEventListener("load", function() {
+    update( () => {
+      const interval = setInterval(update, 2000);
+    });
+  });
+  </script>
+  <link rel="stylesheet" href="style.css">
+  <title data-i18n="index_title">FreeSwitchOS Main Page</title>
+</head>
+
+<body>
+  <nav id="sidebar"></nav>
+  <div style="margin-left:16%;padding:1px 16px;height:1000px;">
+    <h1 data-i18n="index_heading">Switch Configuration</h1>
+    <div class="tiles">
+      <div class="tile">
+        <div class="tile-icon tile-accent-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+        <div class="tile-value" id="tile-ports">–</div>
+        <div class="tile-label" data-i18n="dash_ports">Ports</div>
+      </div>
+      <div class="tile">
+        <div class="tile-icon tile-accent-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l3.5-5"/></svg></div>
+        <div class="tile-value" id="tile-speed">–</div>
+        <div class="tile-label" data-i18n="dash_speed">Max Link Speed</div>
+      </div>
+      <div class="tile">
+        <div class="tile-icon tile-accent-c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5"/><path d="m6 11 6-6 6 6"/></svg></div>
+        <div class="tile-value" id="tile-tx">–</div>
+        <div class="tile-label" data-i18n="dash_tx">TX Total</div>
+      </div>
+      <div class="tile">
+        <div class="tile-icon tile-accent-d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></div>
+        <div class="tile-value" id="tile-rx">–</div>
+        <div class="tile-label" data-i18n="dash_rx">RX Total</div>
+      </div>
+    </div>
+    <div id="ports"></div>
+    <table id="infoTable">
+      <tr>
+        <th colspan="2" data-i18n="index_settings">Settings</th>
+      </tr>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+  <script src="/dashboard.js"></script>
+  <script src="/navigation.js"></script>
+</body>
+</html>

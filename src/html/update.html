@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="/i18n.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <title data-i18n="update_title">Firmware update</title>
+  </head>
+  <body>
+    <nav id="sidebar"></nav>
+    <div style="margin-left:16%;padding:1px 16px;height:1000px;">
+    <h1 data-i18n="update_heading">Firmware Update</h1>
+    <div class="card">
+      <form enctype="multipart/form-data" action="/upload" method="POST">
+        <input type="hidden" name="MAX_FILE_SIZE" value="1000000" />
+        <div class="form-note" data-i18n="update_instruction">Choose a firmware update file to upload:</div>
+        <div class="file-row">
+          <input id="uploadedfile" name="uploadedfile" type="file" accept=".bin" />
+          <label class="file-btn" for="uploadedfile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg>
+            <span data-i18n="update_choose">Choose file</span>
+          </label>
+          <span class="file-name" id="file_name"></span>
+        </div>
+        <div class="card-actions">
+          <input type="submit" class="action" data-i18n="update_upload" value="Upload File" />
+        </div>
+      </form>
+    </div>
+    <script src="/navigation.js"></script>
+    <script>
+      document.getElementById('uploadedfile').addEventListener('change', function () {
+        var n = document.getElementById('file_name');
+        n.textContent = this.files.length ? this.files[0].name : '';
+      });
+    </script>
+  </body>
+</html>

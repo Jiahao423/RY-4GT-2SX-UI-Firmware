@@ -1,0 +1,897 @@
+// #define REGDBG 1
+
+#include "rtl837x_sfr.h"
+#include "rtl837x_common.h"
+#include "rtl837x_regs.h"
+#include "rtl837x_port.h"
+#include "rtl837x_flash.h"
+#include "rtl837x_pins.h"
+#include "uip.h"
+#include "html_data.h"
+#include <stdint.h>
+#include "phy.h"
+#include "version.h"
+#include "machine.h"
+#include "page_impl.h"
+#include "syslog.h"
+
+// #define DEBUG
+#include "debug.h"
+
+#define L2_MAX_TRANSFER 30
+
+#pragma codeseg BANK1
+#pragma constseg BANK1
+
+extern __code const struct machine machine;
+extern __xdata uint8_t outbuf[TCP_OUTBUF_SIZE];
+extern __xdata uint16_t slen;
+extern __xdata uint16_t cont_len;
+extern __xdata uint32_t cont_addr;
+extern __code uint8_t * __code hex;
+extern __xdata uip_ipaddr_t uip_hostaddr, uip_draddr, uip_netmask;
+
+extern __xdata uint8_t sfr_data[4];
+extern __xdata uint8_t sfp_pins_last;
+extern __xdata uint8_t vlan_names[VLAN_NAMES_SIZE];
+
+extern __xdata uint8_t cmd_history[CMD_HISTORY_SIZE];
+extern __xdata uint16_t cmd_history_ptr;
+
+extern __xdata struct flash_region_t flash_region;
+
+extern __xdata char sfp_module_vendor[2][17];
+extern __xdata char sfp_module_model[2][17];
+extern __xdata char sfp_module_serial[2][17];
+extern __xdata uint8_t sfp_options[2];
+
+__code uint8_t * __code HTTP_RESPONCE_JSON = "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: application/json\r\n\r\n";
+__code uint8_t * __code HTTP_RESPONCE_TXT = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n";
+
+// Convert uint8_t to ascii HEX char push on html-buffer.
+void charhex_to_html(char c)
+{
+	outbuf[slen++] = itohex(c);
+}
+
+
+// Convert (uint8_t) bool to ascii '0' or '1' char push on html-buffer.
+void bool_to_html(char c)
+{
+	outbuf[slen++] = c ? '1' : '0';
+}
+
+
+void char_to_html(char c)
+{
+	outbuf[slen++] = c;
+}
+
+
+//  Convert uint8_t to ascii HEX char.
+void byte_to_html(uint8_t val)
+{
+	uint8_t cnt = 2;
+	do {
+		val = (val >> 4) | (val << 4);
+		charhex_to_html(val);
+		cnt -= 1;
+	} while(cnt);
+}
+
+/* Converts a uint8_t to raw string.
+   Suppress leading zeros.
+*/
+void itoa_html(uint8_t v)
+{
+	uint8_t t = (v / 100);
+	// when print_zeros is not zero, we know that a non-zero number has printed.
+	// That have to print all the next numbers.
+	uint8_t print_zeros = t;
+	if (print_zeros)
+		char_to_html('0' + t);
+	t = (v / 10) % 10;
+	print_zeros |= t;
+	if (print_zeros)
+		char_to_html('0' + t);
+	char_to_html('0' + (v % 10));
+}
+
+void itoa16_html(uint16_t v) /* sufficient for VLAN IDs (max 4094) */
+{
+	uint8_t print_zeros = 0;
+	uint8_t d;
+	d = v / 1000;
+	if (d) { char_to_html('0' + d); print_zeros = 1; }
+	d = (v / 100) % 10;
+	if (d || print_zeros) { char_to_html('0' + d); print_zeros = 1; }
+	d = (v / 10) % 10;
+	if (d || print_zeros) char_to_html('0' + d);
+	char_to_html('0' + (v % 10));
+}
+
+void string_to_html(__code char *s)
+{
+	while (*s) char_to_html(*s++);
+}
+
+uint16_t stat_content(void)
+{
+	dbg_string("stat_content called\n");
+	return 0;
+}
+
+
+uint16_t port_status(void)
+{
+	dbg_string("port_status called\n");
+	return 0;
+}
+
+
+/* Converts sfr_data[] into raw hex string.
+   Suppress leading zeros.
+*/
+void sfr_data_to_html(void)
+{
+ 	uint8_t print_zeros = 0;
+	uint8_t val = 0;
+
+	for (uint8_t nibble = 0; nibble < 8; nibble++) {
+	  	if (!(nibble & 1))
+	        val = sfr_data[nibble>>1];
+		// force the swap instruction, itohex() ignores the upper nibble.
+		val = (val << 4) | (val >> 4);
+		// when print_zeros is not zero, we know that a non-zero number has printed.
+		// That have to print all the next numbers.
+		print_zeros |= val;
+		// only care about lower nibble, that is what is printed.
+		print_zeros &= 0x0f;
+		if (print_zeros)
+			charhex_to_html(val);
+	}
+	if (print_zeros == 0) {
+	    char_to_html('0');
+	}
+}
+
+
+void reg_to_html(register uint16_t reg)
+{
+	reg_read_m(reg);
+	sfr_data_to_html();
+}
+
+
+void reg_to_html_long(register uint16_t reg)
+{
+	reg_read_m(reg);
+	byte_to_html(sfr_data[0]);
+	byte_to_html(sfr_data[1]);
+	byte_to_html(sfr_data[2]);
+	byte_to_html(sfr_data[3]);
+}
+
+
+void send_sfp_info(uint8_t sfp)
+{
+	// This loops over the Vendor-name, Vendor OUI, Vendor PN and Vendor rev ASCII fields
+	for (uint8_t i = 20; i < 60; i++) {
+		if (i >= 36 && i < 40) // Skip Non-ASCII codes
+			continue;
+		uint8_t c = sfp_read_reg(sfp, i);
+		if (c && c != 0xa0) // a0 is the byte read from a non-existant I2C EEPROM
+			char_to_html(c);
+	}
+}
+
+
+void sfp_send_data(uint8_t slot, uint8_t reg, uint8_t len)
+{
+	// maximum supported transfer size is 16 bytes
+	if (len > 16)
+		return;
+
+	if (reg & 0x80) {	// Configure SFP readings address (0x51) as I2C device address
+		reg &= 0x7f;
+		REG_WRITE(RTL837X_REG_I2C_CTRL, 0x00, 0x1 << (I2C_MEM_ADDR_WIDTH-16) | (len - 1) & 0xf,  0x51 >> 5, (0x51 << 3) & 0xff);
+	} else {
+		REG_WRITE(RTL837X_REG_I2C_CTRL, 0x00, 0x1 << (I2C_MEM_ADDR_WIDTH-16) | (len - 1) & 0xf,  0x50 >> 5, (0x50 << 3) & 0xff);
+	}
+
+	reg_read_m(RTL837X_REG_I2C_CTRL);
+	sfr_mask_data(1, 0xfc, i2c_bus_from_scl_pin(machine.sfp_port[slot].i2c.scl) << 5 | i2c_bus_from_sda_pin(machine.sfp_port[slot].i2c.sda) << 2);
+	reg_write_m(RTL837X_REG_I2C_CTRL);
+
+	REG_WRITE(RTL837X_REG_I2C_IN, 0, 0, 0, reg);
+
+	// Execute I2C Read
+	reg_bit_set(RTL837X_REG_I2C_CTRL, 0);
+
+	// Wait for execution to finish
+	do {
+		reg_read_m(RTL837X_REG_I2C_CTRL);
+	} while (sfr_data[3] & 0x1);
+
+	for (uint8_t i = 0; i < len; i++) {
+		if (!(i & 0x3))
+			reg_read_m(RTL837X_REG_I2C_OUT + i);
+		byte_to_html(sfr_data[3 - (i & 0x3)]);
+	}
+}
+
+
+void send_basic_info(void)
+{
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	dbg_string("send_basic_info called\n");
+	slen += strtox(outbuf + slen, "{\"ip_address\":\"");
+	itoa_html(uip_hostaddr[0]); char_to_html('.');
+	itoa_html(uip_hostaddr[0] >> 8); char_to_html('.');
+	itoa_html(uip_hostaddr[1]); char_to_html('.');
+	itoa_html(uip_hostaddr[1] >> 8);
+	slen += strtox(outbuf + slen, "\",\"ip_gateway\":\"");
+	itoa_html(uip_draddr[0]); char_to_html('.');
+	itoa_html(uip_draddr[0] >> 8); char_to_html('.');
+	itoa_html(uip_draddr[1]); char_to_html('.');
+	itoa_html(uip_draddr[1] >> 8);
+	slen += strtox(outbuf + slen, "\",\"ip_netmask\":\"");
+	itoa_html(uip_netmask[0]); char_to_html('.');
+	itoa_html(uip_netmask[0] >> 8); char_to_html('.');
+	itoa_html(uip_netmask[1]); char_to_html('.');
+	itoa_html(uip_netmask[1] >> 8);
+	slen += strtox(outbuf + slen, "\",\"syslog_server_ip\":\"");
+	itoa_html(syslog_state.server_ip[0]); char_to_html('.');
+	itoa_html(syslog_state.server_ip[1]); char_to_html('.');
+	itoa_html(syslog_state.server_ip[2]); char_to_html('.');
+	itoa_html(syslog_state.server_ip[3]);
+	slen += strtox(outbuf + slen, "\",\"mac_address\":\"");
+	byte_to_html(uip_ethaddr.addr[0]); char_to_html(':');
+	byte_to_html(uip_ethaddr.addr[1]); char_to_html(':');
+	byte_to_html(uip_ethaddr.addr[2]); char_to_html(':');
+	byte_to_html(uip_ethaddr.addr[3]); char_to_html(':');
+	byte_to_html(uip_ethaddr.addr[4]); char_to_html(':');
+	byte_to_html(uip_ethaddr.addr[5]);
+	slen += strtox(outbuf + slen, "\",\"sw_ver\":\"");
+	slen += strtox(outbuf + slen, VERSION_SW);
+	slen += strtox(outbuf + slen, "\",\"build_date\":\"");
+	slen += strtox(outbuf + slen, BUILD_DATE);
+	slen += strtox(outbuf + slen, "\",\"hw_ver\":\"");
+	slen += strtox(outbuf + slen, machine.machine_name);
+	slen += strtox(outbuf + slen, "\",\"flash_size\":\"");
+	string_to_html(get_flash_size_str());
+
+	if (machine.n_sfp) {
+		slen += strtox(outbuf + slen, "\",\"sfp_slot_0\":\"");
+		send_sfp_info(0);
+		if (machine.n_sfp == 2) {
+			slen += strtox(outbuf + slen, "\",\"sfp_slot_1\":\"");
+			send_sfp_info(1);
+		}
+	}
+	char_to_html('"');
+
+	char_to_html('}');
+}
+
+
+void send_vlan(uint16_t vlan)
+{
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	dbg_string("sending VLAN\n");
+	//{"members":"0x00060011"}
+	slen += strtox(outbuf + slen, "{\"members\":\"0x");
+	vlan_get(vlan);
+	sfr_data_to_html();
+	slen += strtox(outbuf + slen, "\",\"name\":\"");
+	__xdata uint16_t n = vlan_name(vlan);
+	if (n== 0xffff) {
+		dbg_string("VLAN has no name\n");
+	} else {
+		while(vlan_names[n] && vlan_names[n] != ' ')
+			char_to_html(vlan_names[n++]);
+	}
+	slen += strtox(outbuf + slen, "\",\"pvid\":\"0x");
+	uint16_t pvid_mask = 0;
+	for (uint8_t i = machine.min_port; i <= machine.max_port; i++) {
+		if (port_pvid_get(i) == vlan)
+			pvid_mask |= (1 << i);
+}
+	byte_to_html(pvid_mask >> 8);
+	byte_to_html(pvid_mask);
+	slen += strtox(outbuf + slen, "\"}");
+}
+
+
+void send_counters(char port)
+{
+	dbg_string("send_counters called: "); dbg_byte(port); dbg_char('\n');
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	dbg_string("sending counters\n");
+	dbg_byte(port);
+	uint8_t i = machine.phys_to_log_port[port];
+	slen += strtox(outbuf + slen, "[");
+	for (uint8_t counter = 0; counter < 0x37; counter++) {
+		STAT_GET(counter, i);
+		slen += strtox(outbuf + slen, "\"0x");
+		reg_to_html(RTL837X_STAT_V_HIGH);
+		reg_to_html_long(RTL837X_STAT_V_LOW);
+		char_to_html('\"');
+		if (counter != 0x36)
+			char_to_html(',');
+	}
+	char_to_html(']');
+}
+
+
+void send_l2(uint16_t idx)
+{
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	dbg_string("sending L2\n");
+	dbg_short(idx);
+	__xdata uint8_t entries_left = L2_MAX_TRANSFER;
+
+	do {
+		reg_read_m(RTL837X_TBL_CTRL);
+	} while (sfr_data[3] & TBL_EXECUTE);
+
+	/* The L2 table in the ASIC can hold up to 4096 (0x1000) entries, which
+	 * are accessed using an index. The index is the hash of the MAC address
+	 * and forwarding ID (basically VID). The hash-table is 4-way associative,
+	 * i.e. for a given hash value, 4 entries with that same hash can be stored
+	 * (i.e. the hash points to a bucket with up to 4 entries).
+	 * When the table or a hash bucket is full, further entries will lead to
+	 * L2 flooding.
+	 * To find all entries, we start with entry-index 0 and iteratively search for
+	 * the next entry (with the next higher index), until we arrive again at the first
+	 * entry. The indices are sorted, so if an entry has a smaller index than
+	 * the previous one, we know that we have wrapped around the entire table.
+	 */
+	__xdata uint16_t entry = idx & 0xfff;
+	__xdata uint16_t first_entry = 0xffff; // An illegal entry index
+	char_to_html('[');
+	while (1) {
+		entries_left--;
+		uint8_t port = 0;
+		reg_read_m(RTL837x_TBL_DATA_0);
+		REG_WRITE(RTL837x_TBL_DATA_0, sfr_data[0], sfr_data[1] & 0xfc, sfr_data[2] | (TBL_LUTREAD_NEXT_L2UC << 6), sfr_data[3]);
+
+		REG_WRITE(RTL837X_TBL_CTRL, entry >> 8, entry, TBL_L2_UNICAST, TBL_EXECUTE);
+		do {
+			reg_read_m(RTL837X_TBL_CTRL);
+		} while (sfr_data[3] & TBL_EXECUTE);
+
+		reg_read_m(RTL837x_L2_DATA_OUT_B);
+		if ((sfr_data[0] & 0x20)) {	// Check entry is valid
+			// MAC
+			slen += strtox(outbuf + slen, "{\"mac\":\"");
+			byte_to_html(sfr_data[2]); char_to_html(':');
+			byte_to_html(sfr_data[3]); char_to_html(':');
+			port = (sfr_data[0] >> 6) & 0x3;
+			reg_read_m(RTL837x_L2_DATA_OUT_A);
+			byte_to_html(sfr_data[0]); char_to_html(':');
+			byte_to_html(sfr_data[1]); char_to_html(':');
+			byte_to_html(sfr_data[2]); char_to_html(':');
+			byte_to_html(sfr_data[3]);
+
+			// VLAN
+			slen += strtox(outbuf + slen, "\",\"vlan\":\"");
+			reg_read_m(RTL837x_L2_DATA_OUT_B);
+			charhex_to_html(sfr_data[0] & 0x0f);
+			byte_to_html(sfr_data[1]);
+
+			// type
+			reg_read_m(RTL837x_L2_DATA_OUT_C);
+			if (sfr_data[2] & 0x1)
+				slen += strtox(outbuf + slen, "\",\"type\":\"s\",\"port\":");
+			else
+				slen += strtox(outbuf + slen, "\",\"type\":\"l\",\"port\":");
+
+			port |= (sfr_data[3] & 0x3) << 2;
+			itoa_html(port);
+
+			// Index
+			reg_read_m(RTL837x_TBL_DATA_0);
+			entry = (((uint16_t)sfr_data[2] & 0x0f) << 8) | sfr_data[3];
+			slen += strtox(outbuf + slen, ",\"idx\":\"");
+			byte_to_html(entry >> 8);
+			byte_to_html(entry);
+			char_to_html('"');
+			char_to_html('}');
+			entry += 1; // We want the next entry following after the current entry
+		} else {
+			reg_read_m(RTL837x_TBL_DATA_0);
+			entry = (((uint16_t)sfr_data[2] & 0x0f) << 8) | sfr_data[3] + 1;
+		}
+		if (first_entry == 0xffff) {
+			char_to_html(',');
+			first_entry = entry;
+		} else {
+			if (first_entry == entry || !entries_left) {
+				char_to_html(']');
+				break;
+			} else {
+				char_to_html(',');
+			}
+		}
+	}
+}
+
+
+void l2_delete(uint16_t idx)
+{
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	dbg_string("L2 DELETE\n");
+	dbg_short(idx);
+	__xdata uint8_t entries_left = L2_MAX_TRANSFER;
+
+	do {
+		reg_read_m(RTL837X_TBL_CTRL);
+	} while (sfr_data[3] & TBL_EXECUTE);
+	slen += strtox(outbuf + slen, "{\"result\":");
+	// First, search for the entry based on the index
+	reg_read_m(RTL837x_TBL_DATA_0);
+	REG_WRITE(RTL837x_TBL_DATA_0, sfr_data[0], sfr_data[1] & 0xfc, sfr_data[2] | (TBL_LUTREAD_NEXT_L2UC << 6), sfr_data[3]);
+
+	REG_WRITE(RTL837X_TBL_CTRL, (idx >> 8) & 0xf, idx, TBL_L2_UNICAST, TBL_EXECUTE);
+	do {
+		reg_read_m(RTL837X_TBL_CTRL);
+	} while (sfr_data[3] & 0x1);
+	reg_read_m(RTL837x_L2_DATA_OUT_B);
+	if (!(sfr_data[0] & 0x20)) {
+		char_to_html('0');
+	} else {
+		sfr_data[0] &= 0x3f; // Clear SPA
+		reg_write_m(RTL837x_TBL_DATA_IN_B);
+
+		// Second half of MAC is copied
+		reg_read_m(RTL837x_L2_DATA_OUT_A);
+		reg_write_m(RTL837x_TBL_DATA_IN_A);
+
+		reg_read_m(RTL837x_L2_DATA_OUT_C);
+		sfr_data[3] &= 0xc0; // Clear age, auth and second part of ports
+		sfr_data[1] &= 0xfe; // Clear nosalearn
+		reg_write_m(RTL837x_TBL_DATA_IN_C);
+
+		reg_read_m(RTL837x_TBL_DATA_0);
+		REG_WRITE(RTL837x_TBL_DATA_0, sfr_data[0], sfr_data[1], TBL_L2_UNICAST, sfr_data[3]);
+
+		REG_WRITE(RTL837X_TBL_CTRL, idx >> 8, idx, TBL_L2_UNICAST, TBL_WRITE | TBL_EXECUTE);
+		do {
+			reg_read_m(RTL837X_TBL_CTRL);
+		} while (sfr_data[3] & TBL_EXECUTE);
+
+		char_to_html('1');
+	}
+	char_to_html('}');
+}
+
+
+void send_mirror(void)
+{
+	dbg_string("send_mirror called\n");
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+
+	reg_read_m(RTL837x_MIRROR_CTRL);
+	uint8_t mPort = sfr_data[3];
+	if (mPort & 1) {
+		slen += strtox(outbuf + slen, "{\"enabled\":1,\"mPort\":");
+	} else {
+		slen += strtox(outbuf + slen, "{\"enabled\":0,\"mPort\":");
+	}
+	itoa_html(machine.log_to_phys_port[mPort >> 1]);
+
+	reg_read_m(RTL837x_MIRROR_CONF);
+	uint16_t m = sfr_data[0];
+	m = (m << 8) | sfr_data[1];
+	slen += strtox(outbuf + slen, ",\"mirror_rx\":\"");
+	for (uint8_t i = 0; i < 16; i++) {
+		bool_to_html(!!(m & 0x8000));
+		m <<= 1;
+	}
+	m = sfr_data[2];
+	m = (m << 8) | sfr_data[3];
+	slen += strtox(outbuf + slen, "\",\"mirror_tx\":\"");
+	for (uint8_t i = 0; i < 16; i++) {
+		bool_to_html(!!(m & 0x8000));
+		m <<= 1;
+	}
+	char_to_html('\"');
+	char_to_html('}');
+}
+
+
+void send_lag(void)
+{
+	dbg_string("send_lag called\n");
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+
+	char_to_html('[');
+	for (uint8_t l=0; l < 4; l++) {
+		slen += strtox(outbuf + slen, "{\"lagNum\":");
+		itoa_html(l);
+		slen += strtox(outbuf + slen, ",\"members\":\"");
+		reg_read_m(RTL837X_TRK_MBR_CTRL_BASE + (l << 2));
+		uint16_t ports = ((uint16_t)sfr_data[2] << 8) | sfr_data[3];
+		for (uint8_t i = 0; i < 16; i++) {
+			bool_to_html(!!(ports & 0x8000));
+			ports <<= 1;
+		}
+		slen += strtox(outbuf + slen, "\",\"hash\":\"");
+		reg_read_m(RTL837X_TRK_HASH_CTRL_BASE + (l << 2));
+		sfr_data_to_html();
+		slen += strtox(outbuf + slen, "\"},");
+	}
+	slen -=1; // remove comma
+	char_to_html(']');
+}
+
+
+void send_eee(void)
+{
+	dbg_string("send_eee called\nsending EEE status\n");
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+
+	reg_read_m(RTL8373_PHY_EEE_ABLTY);
+	uint8_t eee_ablty = sfr_data[3];
+
+	char_to_html('[');
+	for (uint8_t i = machine.min_port; i <= machine.max_port; i++) {
+		slen += strtox(outbuf + slen, "{\"portNum\":");
+		itoa_html(machine.log_to_phys_port[i]);
+
+		if (machine.is_sfp[i]) {
+			slen += strtox(outbuf + slen, ",\"isSFP\":1");
+		} else {
+			slen += strtox(outbuf + slen, ",\"isSFP\":0,\"eee\":\"");
+			uint16_t v;
+			phy_read(i, PHY_MMD_AN, PHY_EEE_ADV2);
+			v = SFR_DATA_U16;
+			bool_to_html(v & PHY_EEE_BIT_2G5);
+
+			phy_read(i, PHY_MMD_AN, PHY_EEE_ADV);
+			v = SFR_DATA_U16;
+			bool_to_html(v & PHY_EEE_BIT_1G);
+			bool_to_html(v & PHY_EEE_BIT_100M);
+
+			phy_read(i, PHY_MMD_AN, PHY_EEE_LP_ABILITY2);
+			v = SFR_DATA_U16;
+			slen += strtox(outbuf + slen, "\",\"eee_lp\":\"");
+			bool_to_html (v & PHY_EEE_BIT_2G5);
+
+			phy_read(i, PHY_MMD_AN, PHY_EEE_LP_ABILITY);
+			v = SFR_DATA_U16;
+			bool_to_html(v & PHY_EEE_BIT_1G);
+			bool_to_html(v & PHY_EEE_BIT_100M);
+
+			slen += strtox(outbuf + slen, "\",\"active\":");
+			bool_to_html(eee_ablty & (1 << i));
+		}
+		char_to_html('}');
+		if (i < machine.max_port)
+			char_to_html(',');
+		else
+			char_to_html(']');
+	}
+}
+
+
+void send_bandwidth(void)
+{
+	dbg_string("send_bandwidth called\n");
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	char_to_html('[');
+	for (uint8_t i = machine.min_port; i <= machine.max_port; i++) {
+		slen += strtox(outbuf + slen, "{\"portNum\":");
+		itoa_html(machine.log_to_phys_port[i]);
+		slen += strtox(outbuf + slen, ",\"iLimited\":");
+		reg_read_m(RTL837X_IGBW_PORT_CTRL + i * 4);
+		if (sfr_data[1] & 0x10)
+			char_to_html('1');
+		else
+			char_to_html('0');
+		slen += strtox(outbuf + slen, ",\"iBW\":\"");
+		byte_to_html(sfr_data[1] & 0x0f);
+		byte_to_html(sfr_data[2]);
+		byte_to_html(sfr_data[3]);
+		slen += strtox(outbuf + slen, "\",\"iFC\":");
+		if (reg_bit_test(RTL837X_IGBW_PORT_FC_CTRL, i))
+			char_to_html('1');
+		else
+			char_to_html('0');
+		reg_read_m(RTL837X_EGBW_PORT_CTRL + i * 1024);
+		slen += strtox(outbuf + slen, ",\"eLimited\":");
+		if (sfr_data[1] & 0x10)
+			char_to_html('1');
+		else
+			char_to_html('0');
+		slen += strtox(outbuf + slen, ",\"eBW\":\"");
+		byte_to_html(sfr_data[1] & 0x0f);
+		byte_to_html(sfr_data[2]);
+		byte_to_html(sfr_data[3]);
+		char_to_html('"');
+		char_to_html('}');
+		if (i < machine.max_port)
+			char_to_html(',');
+		else
+			char_to_html(']');
+	}
+}
+
+
+void send_mtu(void)
+{
+	dbg_string("send_mtu called\n");
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	char_to_html('[');
+	for (uint8_t i = machine.min_port; i <= machine.max_port; i++) {
+		slen += strtox(outbuf + slen, "{\"portNum\":");
+		itoa_html(machine.log_to_phys_port[i]);
+		slen += strtox(outbuf + slen, ",\"mtu\":\"0x");
+		reg_read_m(RTL8373_REG_MAC_L2_PORT_MAX_LEN + ((uint16_t) i << 8));
+		uint16_t mtu = SFR_DATA_U16 & 0x3fff;
+		byte_to_html(mtu >> 8);
+		byte_to_html(mtu & 0xff);
+		char_to_html('"');
+		char_to_html('}');
+		if (i < machine.max_port)
+			char_to_html(',');
+		else
+			char_to_html(']');
+	}
+}
+
+
+void send_status(void)
+{
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	dbg_string("sending status\n");
+	char_to_html('[');
+
+	for (uint8_t i = machine.min_port; i <= machine.max_port; i++) {
+		slen += strtox(outbuf + slen, "{\"portNum\":");
+		itoa_html(machine.log_to_phys_port[i]);
+		slen += strtox(outbuf + slen, ",\"logPort\":");
+		itoa_html(i);
+		slen += strtox(outbuf + slen, ",\"name\":\"");
+		for (uint8_t j = 0; j < PORT_NAME_SIZE && port_names[i][j]; j++) {
+			char_to_html(port_names[i][j]);
+		}
+		slen += strtox(outbuf + slen, "\"");
+
+		if (machine.is_sfp[i]) {
+			uint8_t sfp = machine.is_sfp[i] - 1;
+			slen += strtox(outbuf + slen, ",\"isSFP\":1,\"enabled\":");
+			if (!(sfp_pins_last & (0x1 << (sfp << 2)))) {
+				bool_to_html(1);
+				slen += strtox(outbuf + slen,",\"sfp_options\":\"0x");
+				byte_to_html(sfp_options[sfp]);
+				if (sfp_options[sfp] & 0x40) {
+					slen += strtox(outbuf + slen,"\",\"sfp_temp\":\"0x");
+					sfp_send_data(sfp, 224, 2);
+					slen += strtox(outbuf + slen,"\",\"sfp_vcc\":\"0x");
+					sfp_send_data(sfp, 226, 2);
+					slen += strtox(outbuf + slen,"\",\"sfp_txbias\":\"0x");
+					sfp_send_data(sfp, 228, 2);
+					slen += strtox(outbuf + slen,"\",\"sfp_txpower\":\"0x");
+					sfp_send_data(sfp, 230, 2);
+					slen += strtox(outbuf + slen,"\",\"sfp_rxpower\":\"0x");
+					sfp_send_data(sfp, 232, 2);
+					if (sfp_options[sfp] & 0x10) {
+						slen += strtox(outbuf + slen,"\",\"sfp_temp_cal\":\"0x");
+						sfp_send_data(sfp, 212, 4);
+						slen += strtox(outbuf + slen,"\",\"sfp_vcc_cal\":\"0x");
+						sfp_send_data(sfp, 216, 4);
+						slen += strtox(outbuf + slen,"\",\"sfp_txbias_cal\":\"0x");
+						sfp_send_data(sfp, 204, 4);
+						slen += strtox(outbuf + slen,"\",\"sfp_txpower_cal\":\"0x");
+						sfp_send_data(sfp, 208, 4);
+						slen += strtox(outbuf + slen,"\",\"sfp_rxpower_cal\":\"0x");
+						sfp_send_data(sfp, 184, 16);
+						sfp_send_data(sfp, 200, 4);
+					}
+					slen += strtox(outbuf + slen,"\",\"sfp_state\":\"0x");
+					sfp_send_data(sfp, 238, 1);
+				}
+				slen += strtox(outbuf + slen,"\",\"sfp_vendor\":\"");
+				for (register uint8_t s = 0; s < 16 && sfp_module_vendor[sfp][s]; s++)
+					outbuf[slen++] = sfp_module_vendor[sfp][s];
+				slen += strtox(outbuf + slen,"\",\"sfp_model\":\"");
+				for (register uint8_t s = 0; s < 16 && sfp_module_model[sfp][s]; s++)
+					outbuf[slen++] = sfp_module_model[sfp][s];
+				slen += strtox(outbuf + slen,"\",\"sfp_serial\":\"");
+				for (register uint8_t s = 0; s < 16 && sfp_module_serial[sfp][s]; s++)
+					outbuf[slen++] = sfp_module_serial[sfp][s];
+				slen += strtox(outbuf + slen,"\",\"sfp_los\":");
+				if (machine.sfp_port[sfp].pin_los == GPIO_NA) {
+					slen += strtox(outbuf + slen,"null");
+				} else {
+					bool_to_html(sfp_pins_last & (0x2 << (sfp << 2)));
+				}
+			} else {
+				bool_to_html(0);
+			}
+		} else {
+			slen += strtox(outbuf + slen, ",\"isSFP\":0,\"enabled\":");
+			phy_read(i, PHY_MMD31, 0xa610);
+			bool_to_html(SFR_DATA_8 == 0x20);
+			slen += strtox(outbuf + slen, ",\"adv\":\"");
+			phy_read(i, PHY_MMD_AN, PHY_ANEG_MGBASE_CTRL);
+			uint16_t w = SFR_DATA_U16;
+			bool_to_html(!!(w & 0x80));		// 2500BaseN-Full
+			phy_read(i, PHY_MMD31, PHY_MMD31_GBCR);
+			w = SFR_DATA_U16;
+			bool_to_html(!!(w & 0x0200));		// 1000Base-Full
+			phy_read(i, PHY_MMD_AN, PHY_ANEG_ADV);
+			w = SFR_DATA_U16;
+			bool_to_html(!!(w & 0x0100));		// 100Base-Full
+			bool_to_html(!!(w & 0x80));		// 100Base-Half
+			bool_to_html(!!(w & 0x40));		// 10Base-Full
+			bool_to_html(!!(w & 0x20));		// 10Base-Half
+			char_to_html('"');
+		}
+
+		slen += strtox(outbuf + slen, ",\"link\":");
+		
+		uint8_t b = 0;
+		// Determine link state
+		reg_read_m(RTL837X_REG_LINKS_STS);
+		if(!((sfr_data[(i / 8) + 1] >> (i % 8 ) & 1)))
+		{
+			b = 0; //link down
+		}
+		else
+		{
+				//Determine link speed
+				if (i < 8)
+					reg_read_m(RTL837X_REG_LINKS);
+				else
+					reg_read_m(RTL837X_REG_LINKS_89);
+				
+				b = sfr_data[3 - ((i & 7) >> 1)];
+				b = ((i & 1) ? b >> 4 : b & 0xf) + 1;
+		}
+		char_to_html('0' + b);
+
+		STAT_GET(STAT_COUNTER_TX_PKTS, i);
+		slen += strtox(outbuf + slen, ",\"txG\":\"0x");
+		reg_to_html(RTL837X_STAT_V_HIGH);
+		reg_to_html(RTL837X_STAT_V_LOW);
+
+		slen += strtox(outbuf + slen, "\",\"txB\":\"0x");
+		STAT_GET(STAT_COUNTER_ERR_PKTS, i);
+		reg_to_html(RTL837X_STAT_V_LOW);	// 32 bit Tx Packet errors
+
+		slen += strtox(outbuf + slen, "\",\"rxG\":\"0x");
+		STAT_GET(STAT_COUNTER_RX_PKTS, i);
+		reg_to_html(RTL837X_STAT_V_HIGH);
+		reg_to_html(RTL837X_STAT_V_LOW);
+
+		slen += strtox(outbuf + slen, "\",\"rxB\":\"0x");
+		STAT_GET(STAT_COUNTER_ERR_PKTS, i);
+		reg_to_html(RTL837X_STAT_V_HIGH);	// 32bit RX packet errors
+
+		// Byte counters for the overview dashboard: txBytes = ifOutOctets,
+		// rxBytes = ifInOctets (see STAT_COUNTER_TX_BYTES / RX_BYTES)
+		slen += strtox(outbuf + slen, "\",\"txBytes\":\"0x");
+		STAT_GET(STAT_COUNTER_TX_BYTES, i);
+		reg_to_html(RTL837X_STAT_V_HIGH);
+		reg_to_html(RTL837X_STAT_V_LOW);
+
+		slen += strtox(outbuf + slen, "\",\"rxBytes\":\"0x");
+		STAT_GET(STAT_COUNTER_RX_BYTES, i);
+		reg_to_html(RTL837X_STAT_V_HIGH);
+		reg_to_html(RTL837X_STAT_V_LOW);
+
+		slen += strtox(outbuf + slen, "\"}");
+		if (i < machine.max_port)
+			char_to_html(',');
+		else
+			char_to_html(']');
+	}
+}
+
+
+void send_config(void)
+{
+	dbg_string("send_config called\n");
+	__xdata uint32_t pos = CONFIG_START;
+	__xdata uint16_t valid_len = 0;
+	__xdata uint16_t len_left = CONFIG_LEN;
+	__xdata uint8_t flash_buf[256];
+	
+	slen = strtox(outbuf, HTTP_RESPONCE_TXT);
+	
+	// Scan through config to find the end of valid data (null terminator)
+	do {
+		flash_region.addr = pos;
+		flash_region.len = (len_left > 256) ? 256 : len_left;
+		flash_read_bulk(flash_buf);
+		
+		// Look for null terminator in this chunk
+		for (uint16_t i = 0; i < flash_region.len; i++) {
+			if (flash_buf[i] == 0) {
+				// Found end of valid data
+				valid_len += i;
+				goto found_end;
+			}
+		}
+		
+		valid_len += flash_region.len;
+		len_left -= flash_region.len;
+		pos += flash_region.len;
+	} while (len_left > 0);
+	
+found_end:
+	// Now send the valid data
+	if (valid_len > (TCP_OUTBUF_SIZE - slen)) {
+		cont_len = valid_len - (TCP_OUTBUF_SIZE - slen);
+		valid_len = TCP_OUTBUF_SIZE - slen;
+		cont_addr = valid_len;
+	}
+	
+	flash_region.addr = CONFIG_START;
+	flash_region.len = valid_len;
+	flash_read_bulk(outbuf + slen);
+	slen += valid_len;
+}
+
+void send_cmd_log(void)
+{
+	dbg_string("send_cmd_log called\n");
+	slen = strtox(outbuf, HTTP_RESPONCE_TXT);
+	__xdata uint16_t p = (cmd_history_ptr + 1) & CMD_HISTORY_MASK;
+	__xdata uint8_t found_begin = 0;
+	dbg_string("History ptr: ");
+	dbg_short(cmd_history_ptr); dbg_char('\n');
+	while (p != cmd_history_ptr) {
+		if (!cmd_history[p] || cmd_history[p] == '\n')
+			found_begin = 1;
+		if (found_begin && cmd_history[p])
+			outbuf[slen++] = cmd_history[p];
+		p = (p + 1) & CMD_HISTORY_MASK;
+	}
+}
+
+
+void send_vlanlist(void)
+{
+	/* Worst case per entry: {"id":4094,"name":"<117-char name>"} = 138 bytes
+	 * (name bound: CMD_BUF_SIZE=128 minus command prefix); +1 for closing ']'.
+	 * At worst case ~18 VLANs fit; typical configs with short names fit many more. */
+	__xdata uint16_t i;
+	__xdata uint16_t n;
+	uint8_t first = 1;
+
+	slen = strtox(outbuf, HTTP_RESPONCE_JSON);
+	char_to_html('[');
+
+	for (i = 1; i < 4095; i++) {
+		if (vlan_get(i) < 0)
+			continue;
+		if (!(sfr_data[0] & 0x02)) /* bit 1: VLAN table entry valid */
+			continue;
+
+		if (slen + 139 > TCP_OUTBUF_SIZE) /* 138 bytes worst-case entry + 1 byte for closing ']' */
+			break;
+
+		if (!first)
+			char_to_html(',');
+		first = 0;
+
+		slen += strtox(outbuf + slen, "{\"id\":");
+		itoa16_html(i);
+		slen += strtox(outbuf + slen, ",\"name\":\"");
+
+		n = vlan_name(i);
+		if (n != 0xffff) {
+			while (vlan_names[n] && vlan_names[n] != ' ')
+				char_to_html(vlan_names[n++]);
+		}
+
+		slen += strtox(outbuf + slen, "\"}");
+
+	}
+
+	char_to_html(']');
+}

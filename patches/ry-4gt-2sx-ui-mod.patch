@@ -1,0 +1,1933 @@
+diff --git a/Makefile b/Makefile
+index 0cbc04f..b2e6f1a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -75,7 +75,7 @@ SRCS += \
+ 
+ OBJS = ${SRCS:%.c=$(BUILDDIR)/%.rel}
+ DEPS := ${SRCS:%.c=$(BUILDDIR)/%.d}
+-HTML := $(shell find $(html) -name '*.js' -or -name '*.html' -or -name '*.svg')
++HTML := $(shell find $(html) -name '*.js' -or -name '*.html' -or -name '*.svg' -or -name '*.css')
+ 
+ html_data.c html_data.h: $(HTML) tools/output/fileadder
+ 	tools/output/fileadder -a $(HTML_LOCATION) -s $(IMAGESIZE) -b BANK1 -d html -p html_data
+diff --git a/cmd_parser.c b/cmd_parser.c
+index 21ff7a8..d5ba458 100644
+--- a/cmd_parser.c
++++ b/cmd_parser.c
+@@ -642,9 +642,11 @@ void parse_port(void)
+ 		}
+ 	} else if (cmd_compare(2, "name")) {
+ 		uint8_t i = 0;
+-		while ( (i < PORT_NAME_SIZE-1) && (cmd_buffer[cmd_words_b[3] + i] != '\0') ) {
+-			port_names[phy_settings.port][i] = cmd_buffer[cmd_words_b[3] + i];
+-			i++;
++		if (cmd_words_len > 3) {
++			while ( (i < PORT_NAME_SIZE-1) && (cmd_buffer[cmd_words_b[3] + i] != '\0') ) {
++				port_names[phy_settings.port][i] = cmd_buffer[cmd_words_b[3] + i];
++				i++;
++			}
+ 		}
+ 		port_names[phy_settings.port][i] = '\0';
+ 		print_string("\nName set to: \"");
+diff --git a/config.txt b/config.txt
+index 3200af0..76c50d5 100644
+--- a/config.txt
++++ b/config.txt
+@@ -1,3 +1,3 @@
+-ip 192.168.10.247
+-gw 192.168.10.1
+-netmask 255.255.255.0
+\ No newline at end of file
++ip 192.168.0.253
++gw 192.168.0.1
++netmask 255.255.255.0
+diff --git a/html/i18n.js b/html/i18n.js
+index bab49dc..0962e54 100644
+--- a/html/i18n.js
++++ b/html/i18n.js
+@@ -47,6 +47,9 @@ var LANG = {
+     port_10m_f: '10MBit/Full',
+     port_10m_h: '10MBit/Half',
+     port_apply: 'Apply',
++    port_set_name: 'Set Name',
++    port_set_name_hint: 'Name (no spaces), max 31 chars',
++    port_name_no_space: 'Port name cannot contain spaces',
+ 
+     stat_title: 'FreeSwitchOS Port Statistics',
+     stat_heading: 'Port Statistics',
+@@ -67,10 +70,11 @@ var LANG = {
+     vlan_title: 'FreeSwitchOS VLAN Configuration',
+     vlan_heading: 'VLAN Configuration',
+     vlan_select: 'VLAN Select:',
+-    vlan_choose: '— VLAN Choose —',
++    vlan_choose: 'VLAN Choose',
+     vlan_id: 'VLAN ID:',
+     vlan_get_config: 'Get Configuration',
+     vlan_name: 'VLAN Name:',
++    vlan_name_ph: 'Enter VLAN name',
+     vlan_tagged: 'Tagged Ports',
+     vlan_untagged: 'Untagged Ports',
+     vlan_select_all: 'Select all',
+@@ -159,8 +163,10 @@ var LANG = {
+     sys_reset_confirm: 'Are you sure you want to reset the switch?',
+     sys_resetting: 'Switch is resetting. Please wait and refresh the page.',
+ 
+-    login_title: 'RTL Switch Login',
+-    login_heading: 'RTL Switch Login',
++    brand_name: 'RY-4GT-2SX',
++    brand_sub: '2.5G Web Managed Switch',
++    login_title: 'RY-4GT-2SX Switch',
++    login_heading: 'RY-4GT-2SX Switch',
+     login_wrong: 'Wrong password!',
+     login_password: 'Password',
+     login_login: 'Login',
+@@ -168,14 +174,35 @@ var LANG = {
+     index_title: 'FreeSwitchOS Main Page',
+     index_heading: 'Switch Configuration',
+     index_settings: 'Settings',
++    dash_ports: 'Ports',
++    dash_speed: 'Max Link Speed',
++    dash_tx: 'TX Total',
++    dash_rx: 'RX Total',
+ 
+     update_title: 'Firmware update',
+     update_heading: 'Firmware Update',
+     update_instruction: 'Choose a firmware update file to upload:',
++    update_choose: 'Choose file',
+     update_upload: 'Upload File',
+ 
+     common_port: 'Port ',
+     common_pkts: ' pkts',
++
++    info_product: 'Product',
++    info_chipset: 'Chipset',
++    info_firmware: 'Firmware Version',
++    info_mac: 'MAC Address',
++    info_ip: 'IP Address',
++    info_netmask: 'Subnet Mask',
++    info_gateway: 'Gateway',
++    info_uptime: 'Uptime',
++    info_ram: 'RAM',
++    info_syslog: 'Syslog Server',
++    info_build_date: 'Build Date',
++    info_hw_ver: 'Hardware Version',
++    info_flash_size: 'Flash Size',
++    info_sfp0: 'SFP Slot 1',
++    info_sfp1: 'SFP Slot 2',
+   },
+ 
+   ja: {
+@@ -226,6 +253,9 @@ var LANG = {
+     port_10m_f: '10Mbps/全二重',
+     port_10m_h: '10Mbps/半二重',
+     port_apply: '適用',
++    port_set_name: '名前設定',
++    port_set_name_hint: '名前（スペース不可・最大31文字）',
++    port_name_no_space: 'ポート名にスペースは使用できません',
+ 
+     stat_title: 'FreeSwitchOS ポート統計',
+     stat_heading: 'ポート統計',
+@@ -246,10 +276,11 @@ var LANG = {
+     vlan_title: 'FreeSwitchOS VLAN 設定',
+     vlan_heading: 'VLAN 設定',
+     vlan_select: 'VLAN 選択:',
+-    vlan_choose: '— VLAN 選択 —',
++    vlan_choose: 'VLAN を選択',
+     vlan_id: 'VLAN ID:',
+     vlan_get_config: '設定取得',
+     vlan_name: 'VLAN 名:',
++    vlan_name_ph: 'VLAN 名を入力',
+     vlan_tagged: 'タグ付きポート',
+     vlan_untagged: 'タグ無しポート',
+     vlan_select_all: 'すべて選択',
+@@ -338,8 +369,10 @@ var LANG = {
+     sys_reset_confirm: 'スイッチを再起動してもよろしいですか？',
+     sys_resetting: 'スイッチを再起動中です。しばらく待ってからページをリロードしてください。',
+ 
+-    login_title: 'RTL スイッチ ログイン',
+-    login_heading: 'RTL スイッチ ログイン',
++    brand_name: 'RY-4GT-2SX',
++    brand_sub: '2.5G ウェブ管理スイッチ',
++    login_title: 'RY-4GT-2SX スイッチ',
++    login_heading: 'RY-4GT-2SX スイッチ',
+     login_wrong: 'パスワードが違います!',
+     login_password: 'パスワード',
+     login_login: 'ログイン',
+@@ -347,14 +380,35 @@ var LANG = {
+     index_title: 'FreeSwitchOS メインページ',
+     index_heading: 'スイッチ設定',
+     index_settings: '設定',
++    dash_ports: 'ポート',
++    dash_speed: '最大リンク速度',
++    dash_tx: '送信合計',
++    dash_rx: '受信合計',
+ 
+     update_title: 'ファームウェア更新',
+     update_heading: 'ファームウェア更新',
+     update_instruction: 'アップロードするファームウェアファイルを選択:',
++    update_choose: 'ファイルを選択',
+     update_upload: 'ファイルをアップロード',
+ 
+     common_port: 'ポート ',
+     common_pkts: ' pkts',
++
++    info_product: '製品',
++    info_chipset: 'チップセット',
++    info_firmware: 'ファームウェア',
++    info_mac: 'MAC アドレス',
++    info_ip: 'IP アドレス',
++    info_netmask: 'サブネットマスク',
++    info_gateway: 'ゲートウェイ',
++    info_uptime: '稼働時間',
++    info_ram: 'メモリ',
++    info_syslog: 'Syslog サーバー',
++    info_build_date: 'ビルド日付',
++    info_hw_ver: 'ハードウェア版',
++    info_flash_size: 'フラッシュ容量',
++    info_sfp0: 'SFP スロット1',
++    info_sfp1: 'SFP スロット2',
+   },
+ 
+   zh: {
+@@ -405,6 +459,9 @@ var LANG = {
+     port_10m_f: '10Mbps/全双工',
+     port_10m_h: '10Mbps/半双工',
+     port_apply: '应用',
++    port_set_name: '设置名称',
++    port_set_name_hint: '名称（不含空格，最长31字符）',
++    port_name_no_space: '端口名称不能包含空格',
+ 
+     stat_title: 'FreeSwitchOS 端口统计',
+     stat_heading: '端口统计',
+@@ -425,10 +482,11 @@ var LANG = {
+     vlan_title: 'FreeSwitchOS VLAN 配置',
+     vlan_heading: 'VLAN 配置',
+     vlan_select: 'VLAN 选择:',
+-    vlan_choose: '-- 请选择 VLAN --',
++    vlan_choose: '请选择 VLAN',
+     vlan_id: 'VLAN ID:',
+     vlan_get_config: '获取配置',
+     vlan_name: 'VLAN 名称:',
++    vlan_name_ph: '输入 VLAN 名称',
+     vlan_tagged: 'Tagged 端口',
+     vlan_untagged: 'Untagged 端口',
+     vlan_select_all: '全选',
+@@ -517,8 +575,10 @@ var LANG = {
+     sys_reset_confirm: '确定要重启交换机吗?',
+     sys_resetting: '交换机正在重启。请稍候并刷新页面。',
+ 
+-    login_title: 'RTL 交换机登录',
+-    login_heading: 'RTL 交换机登录',
++    brand_name: 'RY-4GT-2SX',
++    brand_sub: '2.5G Web 管理交换机',
++    login_title: 'RY-4GT-2SX 交换机',
++    login_heading: 'RY-4GT-2SX 交换机',
+     login_wrong: '密码错误!',
+     login_password: '密码',
+     login_login: '登录',
+@@ -526,14 +586,126 @@ var LANG = {
+     index_title: 'FreeSwitchOS 主页',
+     index_heading: '交换机配置',
+     index_settings: '设置',
++    dash_ports: '端口',
++    dash_speed: '最大链路速率',
++    dash_tx: '发送总量',
++    dash_rx: '接收总量',
+ 
+     update_title: '固件升级',
+     update_heading: '固件升级',
+     update_instruction: '请选择要上传的固件文件:',
++    update_choose: '选择文件',
+     update_upload: '上传文件',
+ 
+     common_port: '端口 ',
+     common_pkts: ' 个包',
++
++    info_product: '产品型号',
++    info_chipset: '芯片组',
++    info_firmware: '固件版本',
++    info_mac: 'MAC 地址',
++    info_ip: 'IP 地址',
++    info_netmask: '子网掩码',
++    info_gateway: '网关',
++    info_uptime: '运行时间',
++    info_ram: '内存',
++    info_syslog: 'Syslog 服务器',
++    info_build_date: '编译日期',
++    info_hw_ver: '硬件版本',
++    info_flash_size: 'Flash 容量',
++    info_sfp0: 'SFP 插槽1',
++    info_sfp1: 'SFP 插槽2',
++    mib: {
++      "Interface in Octets": "接口入字节数",
++      "Interface out Octets": "接口出字节数",
++      "Interface in Unicast Pkts": "接口入单播包",
++      "Interface in Multicast Pkts": "接口入组播包",
++      "Interface in Broadcast Pkts": "接口入广播包",
++      "Interface out Unicast Pkts": "接口出单播包",
++      "Interface out Multicast Pkts": "接口出组播包",
++      "Interface out Broadcast Pkts": "接口出广播包",
++      "Interface out discards": "接口出丢弃",
++      "802.1d Tp Port in discards": "802.1d 端口入丢弃",
++      "802.3 Single collision frames": "802.3 单冲突帧",
++      "802.3 Multi collision frames": "802.3 多冲突帧",
++      "802.3 Deferred transmissions": "802.3 延迟传输",
++      "802.3 Late collisions": "802.3 后滞冲突",
++      "802.3 Excessive collisions": "802.3 过量冲突",
++      "802.3 Symbol errors": "802.3 符号错误",
++      "802.3 Control in unknown opcodes": "802.3 未知控制码入",
++      "802.3 In Pause frames": "802.3 Pause 帧入",
++      "802.3 Out Pause frames": "802.3 Pause 帧出",
++      "Ether drop events": "以太网丢弃事件",
++      "TX Ether Broadcast Pkts": "TX 以太网广播包",
++      "TX Ether Multicast Pkts": "TX 以太网组播包",
++      "TX Ether CRC Align errors": "TX 以太网 CRC 对齐错误",
++      "RX Ether CRC Align errors": "RX 以太网 CRC 对齐错误",
++      "TX Ether Undersized Pkts": "TX 以太网超小包",
++      "RX Ether Undersized Pkts": "RX 以太网超小包",
++      "TX Ether Oversized Pkts": "TX 以太网超大包",
++      "RX Ether Oversized Pkts": "RX 以太网超大包",
++      "TX Ether Fragments": "TX 以太网碎片帧",
++      "RX Ether fragments": "RX 以太网碎片帧",
++      "TX Ether Jabbers": "TX 以太网长帧错误",
++      "RX Ether Jabbers": "RX 以太网长帧错误",
++      "TX Ether Collisions": "TX 以太网冲突",
++      "TX Ether Pkts 640 Octets": "TX 以太网 64 字节包",
++      "RX Ether Pkts 640 Octets": "RX 以太网 64 字节包",
++      "TX Ether 65-127 Octets": "TX 以太网 65-127 字节包",
++      "RX Ether 65-127 Octets": "RX 以太网 65-127 字节包",
++      "TX Ether Pkts 128-255 Octets": "TX 以太网 128-255 字节包",
++      "RX Ether Pkts 128-255 Octets": "RX 以太网 128-255 字节包",
++      "TX Ether Pkts 256-511 Octets": "TX 以太网 256-511 字节包",
++      "RX Ether Pkts 256-511 Octets": "RX 以太网 256-511 字节包",
++      "TX Ether Pkts 512-1023 Octets": "TX 以太网 512-1023 字节包",
++      "RX Ether Pkts 512-1023 Octets": "RX 以太网 512-1023 字节包",
++      "TX Ether Pkts 1024-1518 Octets": "TX 以太网 1024-1518 字节包",
++      "RX Ether Pkts 1024-1518 Octets": "RX 以太网 1024-1518 字节包",
++      "RX Ether Undersized Drop Pkts": "RX 以太网超小丢弃包",
++      "TX Ether Pkts >1518 Octets": "TX 以太网 >1518 字节包",
++      "RX Ether Pkts >1518 Octets": "RX 以太网 >1518 字节包",
++      "TX Ether Pkts too large": "TX 以太网超大包",
++      "RX Ether Pkts too large": "RX 以太网超大包",
++      "TX Ether Flexible Octets Set 1": "TX 灵活计数集 1 字节",
++      "RX Ether Flexible Octets Set 1": "RX 灵活计数集 1 字节",
++      "TX Ether Flexible Octets CRC Set 1": "TX 灵活计数集 1 CRC",
++      "RX Ether Flexible Octets CRC Set 1": "RX 灵活计数集 1 CRC",
++      "TX Ether Flexible Octets Set 0": "TX 灵活计数集 0 字节",
++      "RX Ether Flexible Octets Set 0": "RX 灵活计数集 0 字节",
++      "TX Ether Flexible Octets CRC Set 0": "TX 灵活计数集 0 CRC",
++      "RX Ether Flexible Octets CRC Set 0": "RX 灵活计数集 0 CRC",
++      "Lenth Field Errors": "长度字段错误",
++      "False Carriers": "伪载波错误",
++      "Undersized Octets": "超小字节帧",
++      "Framing Errors": "帧对齐错误",
++      "RX MAC Discards": "RX MAC 丢弃",
++      "RX MAC IPG Short Drop": "RX MAC IPG 过短丢弃",
++      "802.1d TP Learned Entry Discards": "802.1d 学习表项丢弃",
++      "Egress Queue 7 Dropped Pkts": "出口队列 7 丢弃包",
++      "Egress Queue 6 Dropped Pkts": "出口队列 6 丢弃包",
++      "Egress Queue 5 Dropped Pkts": "出口队列 5 丢弃包",
++      "Egress Queue 4 Dropped Pkts": "出口队列 4 丢弃包",
++      "Egress Queue 3 Dropped Pkts": "出口队列 3 丢弃包",
++      "Egress Queue 2 Dropped Pkts": "出口队列 2 丢弃包",
++      "Egress Queue 1 Dropped Pkts": "出口队列 1 丢弃包",
++      "Egress Queue 0 Dropped Pkts": "出口队列 0 丢弃包",
++      "Egress Queue 7 Out Pkts": "出口队列 7 出包",
++      "Egress Queue 6 Out Pkts": "出口队列 6 出包",
++      "Egress Queue 5 Out Pkts": "出口队列 5 出包",
++      "Egress Queue 4 Out Pkts": "出口队列 4 出包",
++      "Egress Queue 3 Out Pkts": "出口队列 3 出包",
++      "Egress Queue 2 Out Pkts": "出口队列 2 出包",
++      "Egress Queue 1 Out Pkts": "出口队列 1 出包",
++      "Egress Queue 0 Out Pkts": "出口队列 0 出包",
++      "TX Good Counter": "TX 正常计数",
++      "RX Good Counter": "RX 正常计数",
++      "RX Error Counter": "RX 错误计数",
++      "TX Error Counter": "TX 错误计数",
++      "TX Good Counter PHY": "TX 正常计数 PHY",
++      "RX Good Counter PHY": "RX 正常计数 PHY",
++      "RX Error Counter PHY": "RX 错误计数 PHY",
++      "TX Error Counter PHY": "TX 错误计数 PHY",
++    },
+   }
+ };
+ 
+@@ -548,11 +720,15 @@ function t(key) {
+   return LANG[rtlLang][key] || LANG['en'][key] || key;
+ }
+ 
++function mibName(name) {
++  return (LANG[rtlLang].mib && LANG[rtlLang].mib[name]) || name;
++}
++
+ function setLang(lang) {
+   if (LANG[lang]) {
+     localStorage.setItem('rtl_lang', lang);
+     rtlLang = lang;
+-    document.querySelectorAll('[data-i18n]').forEach(function(el) {
++    document.querySelectorAll('[data-i18n], [data-i18n-placeholder]').forEach(function(el) {
+       applyTranslation(el);
+     });
+   }
+@@ -560,6 +736,8 @@ function setLang(lang) {
+ 
+ function applyTranslation(el) {
+   var key = el.getAttribute('data-i18n');
++  var phKey = el.getAttribute('data-i18n-placeholder');
++  if (phKey) el.placeholder = t(phKey);
+   if (!key) return;
+   if (el.tagName === 'INPUT' && (el.type === 'submit' || el.type === 'button')) {
+     el.value = t(key);
+@@ -573,7 +751,7 @@ function applyTranslation(el) {
+ }
+ 
+ document.addEventListener('DOMContentLoaded', function() {
+-  document.querySelectorAll('[data-i18n]').forEach(function(el) {
++  document.querySelectorAll('[data-i18n], [data-i18n-placeholder]').forEach(function(el) {
+     applyTranslation(el);
+   });
+ });
+diff --git a/html/index.html b/html/index.html
+index 4975df2..a61e18b 100644
+--- a/html/index.html
++++ b/html/index.html
+@@ -17,8 +17,30 @@
+ <body>
+   <nav id="sidebar"></nav>
+   <div style="margin-left:16%;padding:1px 16px;height:1000px;">
+-    <div id="ports"></div>
+     <h1 data-i18n="index_heading">Switch Configuration</h1>
++    <div class="tiles">
++      <div class="tile">
++        <div class="tile-icon tile-accent-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
++        <div class="tile-value" id="tile-ports">–</div>
++        <div class="tile-label" data-i18n="dash_ports">Ports</div>
++      </div>
++      <div class="tile">
++        <div class="tile-icon tile-accent-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l3.5-5"/></svg></div>
++        <div class="tile-value" id="tile-speed">–</div>
++        <div class="tile-label" data-i18n="dash_speed">Max Link Speed</div>
++      </div>
++      <div class="tile">
++        <div class="tile-icon tile-accent-c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5"/><path d="m6 11 6-6 6 6"/></svg></div>
++        <div class="tile-value" id="tile-tx">–</div>
++        <div class="tile-label" data-i18n="dash_tx">TX Total</div>
++      </div>
++      <div class="tile">
++        <div class="tile-icon tile-accent-d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></div>
++        <div class="tile-value" id="tile-rx">–</div>
++        <div class="tile-label" data-i18n="dash_rx">RX Total</div>
++      </div>
++    </div>
++    <div id="ports"></div>
+     <table id="infoTable">
+       <tr>
+         <th colspan="2" data-i18n="index_settings">Settings</th>
+@@ -27,6 +49,7 @@
+       </tbody>
+     </table>
+   </div>
++  <script src="/dashboard.js"></script>
+   <script src="/navigation.js"></script>
+ </body>
+ </html>
+diff --git a/html/lag.js b/html/lag.js
+index 2c56d1a..5619a56 100644
+--- a/html/lag.js
++++ b/html/lag.js
+@@ -18,9 +18,9 @@ function lagForm() {
+       inp.id = "p_" + lag + "_" + i;
+       const o = document.createElement("img");
+       if (pIsSFP[i - 1]) {
+-        o.src = "sfp.svg"; o.width ="60"; o.height ="60";
++        o.src = "sfp.svg"; o.width = "66"; o.height = "66";
+       } else {
+-        o.src = "port.svg"; o.width = "40"; o.height = "40";
++        o.src = "port.svg"; o.width = "66"; o.height = "66";
+       }
+       l.appendChild(inp); l.appendChild(o);
+       d.appendChild(l)
+diff --git a/html/login.html b/html/login.html
+deleted file mode 100644
+index 119a933..0000000
+--- a/html/login.html
++++ /dev/null
+@@ -1,30 +0,0 @@
+-<!DOCTYPE html>
+-<html>
+-  <title data-i18n="login_title">RTL Switch Login</title>
+-  <link rel="stylesheet" href="style.css">
+-  <script src="/i18n.js"></script>
+-  <script>
+-    function removeNote() {
+-      document.getElementById("incorrect").innerHTML = "";
+-    }
+-    window.addEventListener("load", function() {
+-      if (document.referrer.endsWith("login.html"))
+-        document.getElementById("incorrect").innerHTML = t('login_wrong');
+-    });
+-  </script>
+-</head>
+-
+-<body class="login_page">
+-  <div class = "center">
+-  <h1 data-i18n="login_heading"> RTL Switch Login</h1>
+-  <form method="post" action="login">
+-  <div class="txt_field">
+-    <input name="pwd" type="password" autocomplete="current-password" onclick="removeNote()" required />
+-    <span></span>
+-    <label data-i18n="login_password">Password</label>
+-  </div>
+-  <input type="submit" data-i18n="login_login" value="Login"/>
+-  <h3 id="incorrect" style="margin-top: 5em;"></h3>
+-  </form>
+-</body>
+-</html>
+diff --git a/html/main.js b/html/main.js
+index f82b232..2ea8db1 100644
+--- a/html/main.js
++++ b/html/main.js
+@@ -2,6 +2,8 @@ var txG = new BigInt64Array(10);
+ var txB = new BigInt64Array(10);
+ var rxG = new BigInt64Array(10);
+ var rxB = new BigInt64Array(10);
++var txBytes = new BigInt64Array(10);
++var rxBytes = new BigInt64Array(10);
+ const linkS = [function(){return t('speed_disabled')}, function(){return t('speed_down')}, "10M", "100M", "1000M", "500M", "10G", "2.5G", "5G"];
+ var pState = new Int8Array(10);
+ var pIsSFP = new Int8Array(10);
+@@ -30,12 +32,12 @@ function drawPorts() {
+     l.type = "image/svg+xml";
+     if (!pIsSFP[i]) {
+       l.data = "port.svg";
+-      l.width ="40";
+-      l.height ="40";
++      l.width = "66";
++      l.height = "66";
+     } else {
+       l.data = "sfp.svg";
+-      l.width = "60";
+-      l.height = "60";
++      l.width = "66";
++      l.height = "66";
+     }
+     l.id="port" + (i+1);
+     f.appendChild(d);
+@@ -122,8 +124,6 @@ function update(callback) {
+   var xhttp = new XMLHttpRequest();
+   xhttp.onreadystatechange = function() {
+     console.log("IN UPDATE ");
+-    if (this.readyState == 4 && this.status == 401)
+-	    document.location = "/login.html"
+     if (this.readyState == 4 && this.status == 200) {
+       const s = JSON.parse(xhttp.responseText);
+       if (!numPorts) {
+@@ -143,6 +143,7 @@ function update(callback) {
+ 	let ttid = "tt_" + n;
+ 	n--;
+ 	txG[n] = BigInt(p.txG); txB[n] = BigInt(p.txB); rxG[n] = BigInt(p.rxG); rxB[n] = BigInt(p.rxB);
++	txBytes[n] = BigInt(p.txBytes); rxBytes[n] = BigInt(p.rxBytes);
+ 	var psvg = document.getElementById(pid);
+ 	var tt = document.getElementById(ttid);
+ 	if (psvg == null || !psvg.contentDocument)
+diff --git a/html/main_info.js b/html/main_info.js
+index 1d9d7ee..173f1c7 100644
+--- a/html/main_info.js
++++ b/html/main_info.js
+@@ -1,3 +1,17 @@
++const infoKeyMap = {
++  'ip_address': 'info_ip',
++  'ip_gateway': 'info_gateway',
++  'ip_netmask': 'info_netmask',
++  'syslog_server_ip': 'info_syslog',
++  'mac_address': 'info_mac',
++  'sw_ver': 'info_firmware',
++  'build_date': 'info_build_date',
++  'hw_ver': 'info_hw_ver',
++  'flash_size': 'info_flash_size',
++  'sfp_slot_0': 'info_sfp0',
++  'sfp_slot_1': 'info_sfp1'
++};
++
+ document.addEventListener("DOMContentLoaded", function () {
+     fetch('/information.json')
+         .then(response => response.json())
+@@ -10,7 +24,7 @@ document.addEventListener("DOMContentLoaded", function () {
+                 const cellKey = document.createElement('td');
+                 const cellValue = document.createElement('td');
+ 
+-                cellKey.textContent = key;
++                cellKey.textContent = t(infoKeyMap[key] || key);
+                 cellValue.textContent = value;
+ 
+                 row.appendChild(cellKey);
+diff --git a/html/mirror.html b/html/mirror.html
+index 22c5af3..f4a808d 100644
+--- a/html/mirror.html
++++ b/html/mirror.html
+@@ -10,15 +10,21 @@
+     <div style="margin-left:16%;padding:1px 16px;height:1000px;">
+     <div id="ports"></div>
+     <h1 data-i18n="mirror_heading">Mirror Configuration</h1>
+-    <label class="tswitch"><span data-i18n="mirror_enabled">Enabled:</span> <input id="me" type="checkbox"></label><br/>
+-    <label for="mp"><span data-i18n="mirror_port">Mirroring Port:</span></label> <input type="number" id="mp" name="mp" min="1" max="9"/>
++    <div class="card">
++      <label class="tswitch"><span data-i18n="mirror_enabled">Enabled:</span> <input id="me" type="checkbox"></label>
++      <div class="form-grid">
++        <label for="mp" data-i18n="mirror_port">Mirroring Port:</label>
++        <input type="number" id="mp" name="mp" min="1" max="9" placeholder="1-6"/>
++      </div>
++    </div>
+     <h2 data-i18n="mirror_tx">Mirrored Ports (TX)</h2>
+     <div id="mPortsTX"></div>
+-    <br />
+     <h2 data-i18n="mirror_rx">Mirrored Ports (RX)</h2>
+     <div id="mPortsRX"></div>
+-    <br/> <input style="width:15%;" class="action" id="mirror_sub" onclick="mirrorSub();" type="button" data-i18n="mirror_update" value="Update / Create">
+-    <input style="width:15%;" class="action" id="mirror_del" onclick="mirrorDel();" type="button" data-i18n="mirror_disable" value="Disable Mirroring">
++    <div class="card-actions">
++      <input class="action" id="mirror_sub" onclick="mirrorSub();" type="button" data-i18n="mirror_update" value="Update / Create">
++      <input class="action" id="mirror_del" onclick="mirrorDel();" type="button" data-i18n="mirror_disable" value="Disable Mirroring">
++    </div>
+     <script src="/mirror.js"></script>
+     <script src="/mirror_sub.js"></script>
+     </div>
+diff --git a/html/mirror.js b/html/mirror.js
+index d09a7b0..4c34351 100644
+--- a/html/mirror.js
++++ b/html/mirror.js
+@@ -18,9 +18,9 @@ function mirrorForm() {
+       inp.id = mirrors[j] + i;
+       const o = document.createElement("img");
+       if (pIsSFP[i - 1]) {
+-        o.src = "sfp.svg"; o.width ="60"; o.height ="60";
++        o.src = "sfp.svg"; o.width = "66"; o.height = "66";
+       } else {
+-        o.src = "port.svg"; o.width = "40"; o.height = "40";
++        o.src = "port.svg"; o.width = "66"; o.height = "66";
+       }
+       l.appendChild(inp); l.appendChild(o);
+       d.appendChild(l)
+diff --git a/html/navigation.js b/html/navigation.js
+index b42f8fd..683279c 100644
+--- a/html/navigation.js
++++ b/html/navigation.js
+@@ -1,20 +1,65 @@
++var currentPage = (location.pathname.split('/').pop()) || 'index.html';
++
++function navIcon(body) {
++  return "<svg class='nav-icon' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>" + body + "</svg>";
++}
++
++function navItem(href, key, label, body) {
++  var cls = (currentPage === href) ? " class='active'" : "";
++  var txt = key ? "<span data-i18n='" + key + "'>" + label + "</span>" : "<span>" + label + "</span>";
++  return "<li><a href='" + href + "'" + cls + ">" + navIcon(body) + txt + "</a></li>";
++}
++
++var iOverview = "<path d='M3 10.5 12 3l9 7.5'/><path d='M5 9.5V21h14V9.5'/>";
++var iPorts = "<rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/>";
++var iStat = "<path d='M3 20h18'/><path d='M7 20v-6'/><path d='M12 20v-10'/><path d='M17 20v-4'/>";
++var iVlan = "<path d='M20.6 13.4 12 22l-8-8V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'/><circle cx='8' cy='8' r='1.6'/>";
++var iL2 = "<rect x='3' y='4' width='18' height='16' rx='2'/><path d='M3 10h18'/><path d='M9 4v16'/>";
++var iMirror = "<rect x='8' y='8' width='12' height='12' rx='2'/><path d='M4 16V6a2 2 0 0 1 2-2h8'/>";
++var iLag = "<path d='M9 15l6-6'/><path d='M11 6 9 4a4.2 4.2 0 0 0-6 6l2 2'/><path d='M13 18l2 2a4.2 4.2 0 0 0 6-6l-2-2'/>";
++var iEee = "<path d='M12 3v9'/><path d='M18.4 6.6a9 9 0 1 1-12.8 0'/>";
++var iBw = "<path d='M4 18a8 8 0 1 1 16 0'/><path d='M12 18l3.5-5'/>";
++var iSys = "<path d='M4 21v-7'/><path d='M4 10V3'/><path d='M12 21v-9'/><path d='M12 8V3'/><path d='M20 21v-5'/><path d='M20 12V3'/><path d='M2 14h4'/><path d='M10 8h4'/><path d='M18 16h4'/>";
++var iUpd = "<path d='M12 21V9'/><path d='m7 14 5-5 5 5'/><path d='M4 3h16'/>";
++
++var brandSwitch = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>"
++  + "<rect x='3' y='4' width='18' height='16' rx='2'/>"
++  + "<rect x='6' y='8' width='4' height='4' rx='0.8'/><rect x='14' y='8' width='4' height='4' rx='0.8'/>"
++  + "<rect x='6' y='15' width='4' height='2' rx='0.8'/><rect x='14' y='15' width='4' height='2' rx='0.8'/>"
++  + "</svg>";
++
+ document.getElementById('sidebar').innerHTML =
+- "<ul><li><a href='index.html' data-i18n='nav_overview'>Overview</a></li>"
+- + "<li><a href='ports.html' data-i18n='nav_port_config'>Port Configuration</a></li>"
+- + "<li><a href='stat.html' data-i18n='nav_port_stat'>Port Statistics</a></li>"
+- + "<li><a href='vlan.html' >VLAN</a></li>"
+- + "<li><a href='l2.html' data-i18n='nav_l2'>L2 Configuration</a></li>"
+- + "<li><a href='mirror.html' data-i18n='nav_mirror'>Mirroring</a></li>"
+- + "<li><a href='lag.html' data-i18n='nav_lag'>Link Aggregation</a></li>"
+- + "<li><a href='eee.html' data-i18n='nav_eee'>EEE</a></li>"
+- + "<li><a href='bandwidth.html' data-i18n='nav_bandwidth'>Bandwidth Limits</a></li>"
+- + "<li><a href='system.html' data-i18n='nav_system'>System Settings</a></li>"
+- + "<li><a href='update.html' data-i18n='nav_fw_update'>Firmware Update</a></li></ul>";
++  "<div class='sidebar-brand'>" + brandSwitch + "<span>RY-4GT-2SX</span></div>"
++  + "<ul>"
++  + navItem('index.html', 'nav_overview', 'Overview', iOverview)
++  + navItem('ports.html', 'nav_port_config', 'Port Configuration', iPorts)
++  + navItem('stat.html', 'nav_port_stat', 'Port Statistics', iStat)
++  + navItem('vlan.html', '', 'VLAN', iVlan)
++  + navItem('l2.html', 'nav_l2', 'L2 Configuration', iL2)
++  + navItem('mirror.html', 'nav_mirror', 'Mirroring', iMirror)
++  + navItem('lag.html', 'nav_lag', 'Link Aggregation', iLag)
++  + navItem('eee.html', 'nav_eee', 'EEE', iEee)
++  + navItem('bandwidth.html', 'nav_bandwidth', 'Bandwidth Limits', iBw)
++  + navItem('system.html', 'nav_system', 'System Settings', iSys)
++  + navItem('update.html', 'nav_fw_update', 'Firmware Update', iUpd)
++  + "</ul>";
+ 
+-document.addEventListener('DOMContentLoaded', function() {
+-  var links = document.querySelectorAll('#sidebar a[data-i18n]');
+-  links.forEach(function(el) {
+-    var key = el.getAttribute('data-i18n');
+-    if (key) el.textContent = t(key);
+-  });
++// Keep port tooltips inside the viewport
++document.addEventListener('mouseover', function(e) {
++  var host = e.target && e.target.closest ? e.target.closest('.tooltip') : null;
++  if (!host) return;
++  var tip = host.querySelector('.tooltiptext');
++  if (!tip) return;
++  tip.style.top = '';
++  tip.style.bottom = '';
++  tip.style.left = '50%';
++  tip.style.right = 'auto';
++  tip.style.transform = 'translateX(-50%)';
++  var r = tip.getBoundingClientRect();
++  var vw = document.documentElement.clientWidth;
++  var vh = document.documentElement.clientHeight;
++  if (r.bottom > vh) { tip.style.top = 'auto'; tip.style.bottom = '110%'; r = tip.getBoundingClientRect(); }
++  if (r.right > vw) {
++    tip.style.transform = 'translateX(calc(-50% - ' + (r.right - vw + 8) + 'px))';
++  }
+ });
+diff --git a/html/port.svg b/html/port.svg
+index 9a531df..d62b2d5 100644
+--- a/html/port.svg
++++ b/html/port.svg
+@@ -1,26 +1,14 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+-<svg  viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+-<g id="layer1" transform="translate(-314.07 -485.06)">
+-<g id="g1" transform="translate(256.16 417.12)">
+-<rect id="r1" style="stroke:#0a0a0a;stroke-linecap:square;stroke-width:4;fill:#ffffff" rx="4.514" ry="4.514" height="90.625" width="117.88" y="69.93" x="59.896"/>
+-<g id="g2"> <g id="g3">
+-    <path class="bg" id="rect3787"
+-     d="m73.958 75.66h89.41c2.3083 0 4.1667 1.8583 4.1667 4.1667l0.00028 52.653h-21.742v9.414h-8.694l0.00004 12.586h-36.871l-0.00004-12.586h-8.694v-9.414h-21.742l-0.000336-52.653c-0.000011-2.3083 1.8583-4.1667 4.1667-4.1667z"
+-     style="stroke:#0a0a0a;stroke-linecap:square;stroke-width:2.5;fill:#dcdcdc"/>
+-    <g id="g4" transform="translate(-0.368)" style="stroke:#191919;stroke-linecap:square;fill:#666666">
+-   <rect id="r2" height="22.786" width="3.9062" y="75.747" x="80.556"/>
+-   <rect id="r3" height="22.786" width="3.9062" y="75.747" x="153.6" />
+-   <rect id="r4" height="22.786" width="3.9062" y="75.747" x="132.73"/>
+-   <rect id="r5" height="22.786" width="3.9062" y="75.747" x="122.3"/>
+-   <rect id="r6" height="22.786" width="3.9062" y="75.747" x="111.86"/>
+-   <rect id="r7" height="22.786" width="3.9062" y="75.747" x="101.43"/>
+-   <rect id="r8" height="22.786" width="3.9062" y="75.747" x="90.99"/>
+-   <rect id="r9" height="22.786" width="3.9062" y="75.747" x="143.17"/>
+-    </g>
++<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
++  <rect class="bg" x="8" y="10" width="16" height="10" rx="1.5" fill="#f2f2f4" stroke="#8e8e93" stroke-width="1.4"/>
++  <g stroke="#8e8e93" stroke-width="1.4" fill="none" stroke-linejoin="round">
++    <line x1="11" y1="10" x2="11" y2="13"/>
++    <line x1="13.4" y1="10" x2="13.4" y2="13"/>
++    <line x1="15.8" y1="10" x2="15.8" y2="13"/>
++    <line x1="18.2" y1="10" x2="18.2" y2="13"/>
++    <line x1="20.6" y1="10" x2="20.6" y2="13"/>
++    <path d="M 14 20 L 14 23 L 18 23 L 18 20"/>
+   </g>
+-  <rect class="led" id="r10" style="stroke:#0a0a0a;stroke-linecap:square;stroke-width:2;fill:#1dfe0a" height="13.89" width="17.1" y="137.03" x="69.542"/>
+-  <rect class="led" id="r11" style="stroke:#0a0a0a;stroke-linecap:square;stroke-width:2;fill:#ffd10a" height="13.89" width="17.1" y="137.03" x="150.68"/>
+-   </g>
+- </g>
+-</g>
++  <circle class="led" cx="11" cy="6" r="1.6" fill="#34c759"/>
++  <circle class="led" cx="21" cy="6" r="1.6" fill="#34c759"/>
+ </svg>
+diff --git a/html/ports.js b/html/ports.js
+index 9079ca1..8264994 100644
+--- a/html/ports.js
++++ b/html/ports.js
+@@ -20,7 +20,11 @@ function createPortTable() {
+       const tr = tbl.insertRow();
+       let td = tr.insertCell(); td.appendChild(document.createTextNode(t('common_port') + i));
+       let portName = portNames[physToLogPort[i-1]] || '';
+-      td = tr.insertCell(); td.appendChild(document.createTextNode(portName));
++      td = tr.insertCell();
++      td.innerHTML = '<input type="text" id="port_name_' + i + '" value="' + escHtml(portName)
++		  + '" maxlength="31" title="' + t('port_set_name_hint') + '" style="width:110px" '
++		  + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();applyName(' + i + ');}">'
++		  + ' <button type="button" style="margin:0" onclick="applyName(' + i + ');">' + t('port_set_name') + '</button>';
+       td = tr.insertCell(); td.innerHTML = linkText(pState[i] + 1);
+       td = tr.insertCell(); td.innerHTML = sSelect.replaceAll("speed_sel", "speed_sel_" + i);
+       td = tr.insertCell(); td.innerHTML = dSwitch.replaceAll("disable_port", "disable_port_" + i)
+@@ -43,9 +47,9 @@ function createPortTable() {
+       for (let i = 1; i <= numPorts; i++) {
+         let td = tr.insertCell();
+         if (pIsSFP[i-1])
+-          td.innerHTML = '<object type="image/svg+xml" data="sfp.svg" width="60"></object>'
++          td.innerHTML = '<object type="image/svg+xml" data="sfp.svg" width="66"></object>'
+         else
+-          td.innerHTML = '<object type="image/svg+xml" data="port.svg" width="40"></object>'
++          td.innerHTML = '<object type="image/svg+xml" data="port.svg" width="66"></object>'
+       }
+       tr = tbl.insertRow();
+       for (let i = 1; i <= numPorts; i++) {
+@@ -96,6 +100,29 @@ async function applySpeed(port) {
+   }
+ }
+ 
++function escHtml(s) {
++  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
++}
++
++async function applyName(port) {
++  var name = document.getElementById('port_name_' + port).value.trim();
++  if (/\s/.test(name)) {
++    alert(t('port_name_no_space'));
++    return;
++  }
++  var cmd = "port " + port + " name " + name;
++  console.log("CMD: " + cmd);
++  try {
++    const response = await fetch('/cmd', {
++      method: 'POST',
++      body: cmd
++    });
++    console.log('Name Completed!', response);
++  } catch(err) {
++    console.error(`Error: ${err}`);
++  }
++}
++
+ async function portOnOff(p) {
+   var disabled = document.getElementById('disable_port_' + p).checked;
+   document.getElementById('speed_sel_' + p).disabled = disabled;
+diff --git a/html/sfp.svg b/html/sfp.svg
+index 59e3a5a..65fbc4b 100644
+--- a/html/sfp.svg
++++ b/html/sfp.svg
+@@ -1,24 +1,10 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+-<svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+- <g id="layer1" transform="translate(-41.68,-55.95)">
+-  <g id="g1" transform="translate(-177.45,-12.07)">
+-   <g id="g2" transform="matrix(1.46,0,0,1.44,51.31,-317.4)">
+-    <path id="p1"
+-      d="m 117.94442,272.67478 h 7.64646 c 0.21062,0 0.38018,0.16649 0.38018,0.3733 v 4.69239 c 0,0.2068 -0.16956,0.3733 -0.38018,0.3733 h -2.1027 v 0.31956 h -3.44117 v -0.31956 h -2.1027 c -0.21062,0 -0.38018,-0.16649 -0.38018,-0.3733 v -4.69239 c 0,-0.20681 0.16956,-0.3733 0.38018,-0.3733 z"
+-      style="fill:#ffffff;stroke:#000000;stroke-width:0.4"/>
+-    <path class="bg" id="p2"
+-      d="m 118.36775,273.15632 h 6.79794 c 0.18725,0 0.338,0.14695 0.338,0.32946 v 4.14153 c 0,0.18252 -0.15074,0.32946 -0.338,0.32946 h -6.79794 c -0.18724,0 -0.338,-0.14695 -0.338,-0.32946 v -4.14153 c 0,-0.18252 0.15074,-0.32946 0.338,-0.32946 z"
+-      style="fill:#000000;stroke-width:0.26" />
+-    <path d="m 118.65,273.53 h 6.24 v 4.05 h -6.24 z" style="fill:#1a1a1a;stroke-width:0.26" id="p3" />
+-    <path d="m 118.86,276.61 h 5.82" style="fill:#1a1a1a;stroke:#000000;stroke-width:0.26" id="p4" />
+-    <path d="m 124.05,274.25 h 1.39 v 0.72 h -1.39 z" style="fill:#1a1a1a;stroke-width:0.26" id="p5" />
+-    <path d="m 124.05,276 h 1.39 v 0.72 h -1.39 z" style="fill:#1a1a1a;stroke-width:0.26" id="p6" />
+-    <path transform="matrix(0.26,0,0,0.26,116.9,272.11)" d="M 7.3648613,7.0152205 H 29.369861" style="opacity:0.61257;fill:#4d4d4d;stroke:#4d4d4d;filter:url(#filter17794-0)" id="p7" />
+-   </g>
+-   <g id="g3" style="opacity:1;fill:#37d733;" transform="matrix(0.93,0,0,0.92,62.18,-43.11)">
+-    <circle class="led" id="c1" cx="176.86" cy="125.7" r="0.93"/>
+-    <circle class="led" id="c2" r="0.93" cy="125.7" cx="180.84"/>
+-   </g>
++<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
++  <rect class="bg" x="8" y="10" width="16" height="10" rx="1.5" fill="#f2f2f4" stroke="#8e8e93" stroke-width="1.4"/>
++  <g fill="#8e8e93">
++    <rect x="11" y="12" width="4" height="5" rx="0.5"/>
++    <rect x="17" y="12" width="4" height="5" rx="0.5"/>
+   </g>
+- </g>
++  <circle class="led" cx="11" cy="6" r="1.6" fill="#34c759"/>
++  <circle class="led" cx="21" cy="6" r="1.6" fill="#34c759"/>
+ </svg>
+diff --git a/html/stat.html b/html/stat.html
+index 993eede..a180944 100644
+--- a/html/stat.html
++++ b/html/stat.html
+@@ -8,6 +8,7 @@
+     .popup {
+       display: none;
+       position: fixed;
++      z-index: 1000;
+       top: 0; left: 0;
+       width: 100%; height: 100%;
+       background: rgba(0, 0, 0, 0.5);
+@@ -15,11 +16,16 @@
+       align-items: center;
+     }
+     .popup-content {
+-      background: #fff;
+-      padding: 20px;
+-      border-radius: 5px;
++      background: var(--card);
++      backdrop-filter: blur(var(--blur));
++      -webkit-backdrop-filter: blur(var(--blur));
++      color: var(--text);
++      border: 1px solid var(--card-border);
++      border-radius: var(--radius);
++      padding: 24px;
+       text-align: center;
+-      height: 80%
++      height: 80%;
++      max-width: 1100px;
+     }
+     .popup .popup-content {
+        overflow-y: scroll;
+diff --git a/html/stat.js b/html/stat.js
+index 2709eeb..3157f22 100644
+--- a/html/stat.js
++++ b/html/stat.js
+@@ -125,11 +125,11 @@ function getCounters(port) {
+         }
+         var count = BigInt(s[i/4]);
+         if (mib_counters[i+1] == 8) {
+-          tableHtml += "<td>" + mib_counters[i] + "</td><td>" + count.toString() + "</td>";
++          tableHtml += "<td>" + mibName(mib_counters[i]) + "</td><td>" + count.toString() + "</td>";
+           c += 1;
+         } else if (mib_counters[i+1] == 4) {
+           if (mib_counters[i] != "") {
+-            tableHtml += "<td>" + mib_counters[i] + "</td><td>" + (count >> 32n).toString() + "</td>";
++            tableHtml += "<td>" + mibName(mib_counters[i]) + "</td><td>" + (count >> 32n).toString() + "</td>";
+             c += 1;
+           }
+           if (c == 2) {
+@@ -137,7 +137,7 @@ function getCounters(port) {
+             c = 0;
+           }
+           if (mib_counters[i+2] != "") {
+-            tableHtml += "<td>" + mib_counters[i+2] + "</td><td>" + (count & 4294967295n).toString() + "</td>";
++            tableHtml += "<td>" + mibName(mib_counters[i+2]) + "</td><td>" + (count & 4294967295n).toString() + "</td>";
+             c += 1;
+           }
+         }
+diff --git a/html/style.css b/html/style.css
+index 84d3a2e..de39183 100644
+--- a/html/style.css
++++ b/html/style.css
+@@ -1,144 +1,416 @@
+-h1, h2, h3 {
+-  color: #226;
++:root {
++  --bg: #c8cacd;
++  --bg-deep: #c8cacd;
++  --sidebar: rgba(242, 244, 246, 0.72);
++  --sidebar-hover: #e8e9eb;
++  --card: #f2f4f6;
++  --card-border: rgba(0, 0, 0, 0.10);
++  --text: #1c1c1e;
++  --text-dim: #86888c;
++  --accent: #007aff;
++  --accent-soft: rgba(0, 122, 255, 0.12);
++  --ok: #34c759;
++  --nok: #ff3b30;
++  --font: -apple-system, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
++  --radius: 18px;
++  --radius-sm: 12px;
++  --blur: 20px;
+ }
+-ul {
+-  list-style-type: none;
++
++* { box-sizing: border-box; }
++
++html, body {
+   margin: 0;
+   padding: 0;
+-  width: 12%;
+-  height: calc(100% - 50px);
+-  position: fixed;
+-  top: 50px;
+-  overflow: auto;
++  min-height: 100vh;
++  color: var(--text);
++  font-family: var(--font);
++  background:
++    radial-gradient(900px 600px at 88% -10%, rgba(0, 122, 255, 0.10), transparent 60%),
++    radial-gradient(800px 700px at -8% 15%, rgba(0, 122, 255, 0.08), transparent 60%),
++    linear-gradient(180deg, #d3d5d8 0%, var(--bg-deep) 100%);
++  background-attachment: fixed;
+ }
+ 
+-li a {
+-  background-color: #aaf;
+-  display: block;
+-  color: #000;
+-  padding: 8px 16px;
++h1, h2, h3 { color: var(--text); }
++h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; margin: 4px 0 14px; }
++h2 { font-size: 18px; font-weight: 600; margin: 28px 0 12px; }
++h3 { font-size: 15px; font-weight: 600; }
++
++/* ---------- Sidebar ---------- */
++#sidebar {
++  position: fixed;
++  top: 0;
++  left: 0;
++  width: 240px;
++  height: 100vh;
++  background: var(--sidebar);
++  backdrop-filter: blur(var(--blur));
++  -webkit-backdrop-filter: blur(var(--blur));
++  border-right: 1px solid var(--card-border);
++  overflow-y: auto;
++  z-index: 10;
++}
++#sidebar ul { list-style: none; margin: 0; padding: 10px 12px; }
++.sidebar-brand {
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  padding: 24px 20px 18px;
++  font-weight: 700;
++  font-size: 15px;
++  letter-spacing: 0.3px;
++  color: var(--text);
++}
++.sidebar-brand svg { width: 24px; height: 24px; color: var(--accent); flex: none; }
++#sidebar li { margin-bottom: 2px; }
++#sidebar li a {
++  display: flex;
++  align-items: center;
++  gap: 12px;
++  padding: 11px 14px;
++  color: var(--text-dim);
+   text-decoration: none;
++  font-size: 14px;
++  font-weight: 500;
++  border-radius: var(--radius-sm);
++  transition: background 0.18s ease, color 0.18s ease;
++}
++#sidebar li a:hover { background: var(--sidebar-hover); color: var(--text); }
++#sidebar li a.active {
++  background: var(--sidebar-hover);
++  color: var(--accent);
++  box-shadow: inset 0 0 0 1px rgba(0, 122, 255, 0.18);
++  font-weight: 600;
+ }
++.nav-icon { width: 18px; height: 18px; flex: none; }
+ 
+-/* Change the link color on hover */
+-li a:hover {
+-  background-color: #226;
+-  color: white;
++/* ---------- Content area ---------- */
++#sidebar + div {
++  margin-left: 240px !important;
++  min-height: 100vh;
++  height: auto !important;
++  padding: 32px 40px !important;
++  max-width: 1100px;
+ }
+ 
+-table, th, td {
+-  border: 1px solid #226;
+-  padding: 8px;
++/* ---------- Dashboard tiles ---------- */
++.tiles {
++  display: grid;
++  grid-template-columns: repeat(4, 1fr);
++  gap: 16px;
++  margin: 24px 0 8px;
+ }
+-table {
+-  border-collapse: collapse;
+-  width: 60%;
++.tile {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  text-align: center;
++  background: var(--card);
++  backdrop-filter: blur(var(--blur));
++  -webkit-backdrop-filter: blur(var(--blur));
++  border: 1px solid var(--card-border);
++  border-radius: var(--radius);
++  padding: 20px 22px;
++  transition: transform 0.15s ease, border-color 0.2s ease;
+ }
+-
+-td {
+-  text-align: right;
++.tile:hover { transform: translateY(-2px); border-color: rgba(0, 122, 255, 0.3); }
++.tile-icon {
++  width: 42px;
++  height: 42px;
++  border-radius: 12px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  margin-bottom: 14px;
+ }
++.tile-icon svg { width: 22px; height: 22px; }
++.tile-value { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; }
++.tile-label { font-size: 12px; color: var(--text-dim); margin-top: 6px; letter-spacing: 0.4px; }
++.tile-accent-a { background: var(--accent-soft); color: var(--accent); }
++.tile-accent-b { background: rgba(175, 82, 222, 0.12); color: #af52de; }
++.tile-accent-c { background: rgba(52, 199, 89, 0.14); color: var(--ok); }
++.tile-accent-d { background: rgba(255, 59, 48, 0.12); color: var(--nok); }
++@media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+ 
+-input[type=submit] { padding: 8px 16px;background-color:#aaf;color:#000; margin-bottom: 2em;border-radius: 15px;width: 100%;}
+-input[type=submit]:hover { background-color: #226; color: white;}
+-input[type=file] { padding: 8px 16px;background-color:#aaf;color:#000; margin-bottom: 2em;border-radius: 15px;width: 60%;}
+-input[type=file]:hover { background-color: #226; color: white;}
+-b
+-button {padding: 8px; background-color:#99f; color:#000;border-radius: 15px;}
+-button:hover { background-color: #226; color: white;}
+-.action{padding: 8px 16px;margin-top: 2em;margin-right: 3em; background-color: #aaf;color: #000;border-radius: 15px; width: 100%;}
+-.action:hover { background-color: #226; color: white;}
++/* ---------- Port panel ---------- */
++#ports {
++  position: relative;
++  z-index: 20;
++  display: flex;
++  flex-wrap: wrap;
++  gap: 36px;
++  justify-content: center;
++  align-items: flex-end;
++  background: var(--card);
++  backdrop-filter: blur(var(--blur));
++  -webkit-backdrop-filter: blur(var(--blur));
++  border: 1px solid var(--card-border);
++  border-radius: var(--radius);
++  padding: 18px;
++  margin: 16px 0;
++}
++#ports object { margin: 0; }
++#ports:empty { display: none; }
+ 
+-/* Port selection inputs */
+-.psel {
+-  position: absolute;
+-  opacity: 0;
+-  width: 0;
+-  height: 0;
+-  margin-top: 1em;
++/* ---------- Tables ---------- */
++table {
++  border-collapse: separate;
++  border-spacing: 0;
++  width: 100%;
++  max-width: 100%;
++  background: var(--card);
++  backdrop-filter: blur(var(--blur));
++  -webkit-backdrop-filter: blur(var(--blur));
++  border: 1px solid var(--card-border);
++  border-radius: var(--radius);
++  overflow: hidden;
++  margin: 16px 0;
+ }
+-.psel + img {
++th, td { padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right; white-space: nowrap; }
++th {
++  color: var(--text-dim);
++  font-weight: 600;
++  font-size: 12px;
++  letter-spacing: 0.6px;
++  text-transform: uppercase;
++  background: rgba(0, 0, 0, 0.03);
++}
++td { text-align: right; }
++tbody tr { transition: background 0.15s ease; }
++tbody tr:hover { background: var(--accent-soft); }
++tr:last-child th, tr:last-child td { border-bottom: none; }
++
++/* ---------- Forms ---------- */
++input[type=submit], input[type=file], .action, button {
++  background: #fff;
++  color: var(--accent);
++  border: 1px solid #d2d2d7;
++  border-radius: 10px;
++  padding: 8px 20px;
++  font-size: 14px;
++  font-weight: 400;
+   cursor: pointer;
+-  opacity: 0.4;
+-  padding: 8px;
++  box-shadow: none;
++  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+ }
+-.psel:checked + img {
+-/*  outline: 2px solid #f00;*/
+-  opacity: 1.0;
++input[type=submit]:hover, input[type=file]:hover, .action:hover, button:hover {
++  background: #f5f9ff;
++  border-color: var(--accent);
++  color: var(--accent);
++}
++input[type=submit]:active, .action:active, button:active { transform: scale(0.97); }
++
++input[type=text], input[type=number], input[type=password], select, textarea, .ip {
++  background: rgba(255, 255, 255, 0.75);
++  border: 1px solid rgba(0, 0, 0, 0.12);
++  color: var(--text);
++  border-radius: 10px;
++  padding: 10px 14px;
++  font-size: 14px;
++  backdrop-filter: blur(8px);
++}
++input[type=text]:focus, input[type=number]:focus, input[type=password]:focus, select:focus {
++  outline: none;
++  border-color: var(--accent);
++  box-shadow: 0 0 0 3px var(--accent-soft);
+ }
+-object, img {
+- margin: 0.5em 0.5em;
++/* 原生数字调节箭头与简约风格不搭，隐藏，数值直接输入 */
++input[type=number]::-webkit-outer-spin-button,
++input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
++input[type=number] { -moz-appearance: textfield; appearance: textfield; }
++::placeholder { color: var(--text-dim); opacity: 1; }
++select { text-align-last: right; font-family: monospace; }
++#lang-select { margin-left: 1em; text-align-last: left; }
++#lang-select option { direction: ltr; text-align: left; }
++option { direction: rtl; font-family: sans-serif; }
++
++/* ---------- VLAN form rows ---------- */
++.vrow {
++  display: flex;
++  align-items: center;
++  gap: 16px;
++  margin: 16px 0;
++}
++.vrow label {
++  width: 120px;
++  flex: none;
++  color: var(--text-dim);
++  font-size: 14px;
+ }
+-.cbgroup {
+-  display: inline-block;
++.vrow select,
++.vrow input[type=text],
++.vrow input[type=number] {
++  width: 220px;
+   text-align: center;
+ }
+-.cbgroup label {
+-  display: block;
++.vrow select {
++  text-align-last: center;
+ }
++#vlanSelect option:disabled { color: var(--text-dim); }
+ 
+-.disabled{ opacity: .4; background-color: #f88; color: #000}
+-.isSFP{ opacity: .4; background-color: #660;}
+-.isNOK{ color: #900;}
+-.isOK{ color: #090;}
+-.ip{padding:8px 16px;margin-bottom: 1em;margin-left: 1em}
+-.row {display: flex;}
+-.rcol {flex: 90%;}
+-.lcol {flex: 10%;}
++input[type=file] { width: 100%; }
++.action { width: auto !important; min-width: 140px; margin-top: 1.2em; margin-right: 0 !important; }
+ 
+-/* Login page */
+-.login_page {margin: 0; padding: 0; background: #aaf; height: 100vh; overflow: hidden;}
+-.center{
+-  position: absolute; top: 50%; left: 50%;
+-  transform: translate(-50%, -40% );
+-  width: 500px; height: 400px;
+-  background: white;
+-  border-radius: 2px;
++/* ---------- Settings cards ---------- */
++.card {
++  background: var(--card);
++  backdrop-filter: blur(var(--blur));
++  -webkit-backdrop-filter: blur(var(--blur));
++  border: 1px solid var(--card-border);
++  border-radius: var(--radius);
++  padding: 24px 28px;
++  margin: 16px 0;
++  max-width: 620px;
++}
++.card textarea { width: 100%; box-sizing: border-box; font-family: monospace; resize: vertical; }
++.form-grid {
++  display: grid;
++  grid-template-columns: 150px 1fr;
++  gap: 14px 16px;
++  align-items: center;
++  margin-top: 8px;
++}
++.form-grid label { color: var(--text-dim); font-size: 14px; }
++.form-grid .ip, .form-grid select { width: 100%; margin-left: 0; margin-bottom: 0; }
++.form-grid #lang-select { margin-left: 0; }
++.form-grid input[type=text], .form-grid input[type=number] { width: 100%; margin: 0; }
++.form-note {
++  color: var(--text-dim);
++  font-size: 13px;
++  line-height: 1.5;
++  margin: 18px 0 0;
++}
++.card-actions {
++  display: flex;
++  justify-content: flex-end;
++  gap: 12px;
++  margin-top: 16px;
+ }
++.card-actions .action { margin-top: 0; }
+ 
+-.center h1 {
+-  text-align: center;
+-  border-bottom: 1px solid silver;
++/* ---------- Custom file upload ---------- */
++.file-row { position: relative; margin-top: 16px; }
++.file-row input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; padding: 0; }
++.file-btn {
++  display: inline-flex;
++  align-items: center;
++  gap: 8px;
++  background: #fff;
++  color: var(--accent);
++  border: 1px solid #d2d2d7;
++  border-radius: 10px;
++  padding: 10px 20px;
++  font-size: 14px;
++  cursor: pointer;
++  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
++}
++.file-btn:hover { background: #f5f9ff; border-color: var(--accent); }
++.file-btn:active { background: var(--accent); color: #fff; }
++.file-btn svg { width: 16px; height: 16px; }
++.file-name {
++  color: var(--text-dim);
++  font-size: 13px;
++  margin-left: 12px;
++  max-width: 320px;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++  vertical-align: middle;
+ }
+ 
+-.center form {
+-padding: 0 60px;
+-box-sizing: border-box;
++/* ---------- Switch (mirror enable) ---------- */
++.tswitch {
++  display: flex;
++  align-items: center;
++  gap: 12px;
++  font-size: 14px;
++  color: var(--text-dim);
++  cursor: pointer;
++  margin-bottom: 16px;
++}
++.tswitch input[type=checkbox] {
++  appearance: none;
++  -webkit-appearance: none;
++  width: 46px;
++  height: 27px;
++  border-radius: 14px;
++  background: #c9cbd0;
++  position: relative;
++  margin: 0;
++  flex: none;
++  cursor: pointer;
++  transition: background 0.15s ease;
+ }
+-form .txt_field{
+-position: relative;
+-border-bottom: 2px solid #adadad;
+-margin: 30px 0;
++.tswitch input[type=checkbox]::before {
++  content: "";
++  position: absolute;
++  top: 2.5px;
++  left: 2.5px;
++  width: 22px;
++  height: 22px;
++  border-radius: 50%;
++  background: #fff;
++  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
++  transition: transform 0.15s ease;
+ }
+-.txt_field input { width: 100%; padding: 0 5px; height: 40px; font-size: 16px; border: none;
+-  background: none;
+-  outline: none;}
+-.txt_field label { position: absolute; top: 50%; left: 5px; color:#adadad; transform: translateY(-50%);
+-  font-size: 16px; pointer-events: none;transition: .5s; }
+-.txt_field span::before{ content:''; position: absolute; top: 40px; left:0; width: 100%; height: 2px; background: #aaf;}
+-.txt_field input:focus ~ label,
+-.txt_field input:valid ~ label { top: -5px; color: #aaf; }
++.tswitch input[type=checkbox]:checked { background: var(--ok); }
++.tswitch input[type=checkbox]:checked::before { transform: translateX(19px); }
++.tswitch input[type=checkbox]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+ 
+-.tooltip {
+-  position: relative; display: inline-block; cursor: pointer;
++/* ---------- Port selection ---------- */
++.psel {
++  position: absolute;
++  opacity: 0;
++  width: 0;
++  height: 0;
++  margin-top: 1em;
++}
++.psel + img {
++  cursor: pointer;
++  opacity: 0.4;
++  padding: 8px;
++}
++.psel:checked + img {
++  opacity: 1.0;
++  box-shadow: 0 0 0 2px var(--accent);
++  border-radius: 10px;
+ }
++object, img { margin: 0.5em; }
++.cbgroup { display: inline-block; text-align: center; }
++.cbgroup label { display: flex; flex-direction: column-reverse; align-items: center; }
+ 
++/* ---------- Status colors ---------- */
++.disabled { opacity: 0.4; color: var(--text-dim); background: transparent; }
++.isSFP { opacity: 0.4; color: #a8871f; }
++.isNOK { color: var(--nok); }
++.isOK { color: var(--ok); }
++.ip { padding: 8px 16px; margin-bottom: 1em; margin-left: 1em; }
+ 
++.row { display: flex; }
++.rcol { flex: 90%; }
++.lcol { flex: 10%; }
++
++/* ---------- Tooltip ---------- */
++.tooltip { position: relative; display: inline-block; cursor: pointer; }
+ .tooltiptext {
+   visibility: hidden;
+   width: 260px;
+-  background-color: #226;
+-  color: #fff;
+-  text-align: center;
+-  border-radius: 6px;
+-  padding: 5px 0;
++  background: rgba(242, 244, 246, 0.96);
++  backdrop-filter: blur(24px);
++  -webkit-backdrop-filter: blur(24px);
++  color: var(--text);
++  border: 1px solid rgba(0, 0, 0, 0.10);
++  text-align: left;
++  border-radius: 14px;
++  padding: 10px 12px;
+   position: absolute;
+-  z-index: 1;
++  z-index: 100;
+   top: 80%;
+   left: 50%;
+-  margin-left: -130px;
++  transform: translateX(-50%);
++  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.16);
+ }
+-
+ .tooltiptext::after {
+   content: "";
+   position: absolute;
+@@ -147,20 +419,117 @@ margin: 30px 0;
+   margin-left: -5px;
+   border-width: 5px;
+   border-style: solid;
+-  border-color: transparent transparent black transparent;
++  border-color: transparent transparent rgba(242, 244, 246, 0.96) transparent;
+ }
++.tooltip:hover .tooltiptext { visibility: visible; }
++.tt_table { width: 100%; font-size: 90%; background: transparent; border: none; border-radius: 0; margin: 0; }
++.tt_table td { text-align: left; border: none; background: transparent; padding: 2px 6px; white-space: normal; }
++.tt_table td:first-child { white-space: nowrap; min-width: 84px; }
++.tt_table th { border: none; background: transparent; }
++.popup-content table th, .popup-content table td { white-space: normal; }
+ 
++#vlanTable th, #vlanTable td { text-align: center; }
++#l2table th, #l2table td { text-align: center; }
++#vname { text-align: center; }
++#mp { text-align: center; }
++#infoTable th, #infoTable td { text-align: left; }
++#speedtable th, #speedtable td { text-align: center; }
++#speedtable select { text-align: center; text-align-last: center; }
++#mtutable td { text-align: center; }
++#statstable th, #statstable td { text-align: center; }
++#bwtable th, #bwtable td { text-align: center; }
++#bwtable input[type=number] { text-align: center; }
++#eeetable th, #eeetable td { text-align: center; }
++td button { margin: 0 !important; }
+ 
+-.tooltip:hover .tooltiptext {
+-  visibility: visible;
+-  opacity: 1;
++/* 表格/表单内小操作按钮：低调次要样式（白底/蓝字/细边框/小圆角），区别于主操作按钮 */
++button[type="button"] {
++  background: #fff;
++  color: var(--accent);
++  border: 1px solid #d2d2d7;
++  border-radius: 10px;
++  padding: 6px 16px;
++  font-size: 13px;
++  font-weight: 400;
++  box-shadow: none;
++  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+ }
+-.tt_table {
+-  width: 100%; font-size:90%;
++button[type="button"]:hover {
++  background: #f5f9ff;
++  border-color: var(--accent);
++  color: var(--accent);
++  filter: none;
++  box-shadow: none;
+ }
+-.tt_table td {
+-  text-align: left;
++button[type="button"]:active {
++  background: var(--accent);
++  color: #fff;
++}
++
++/* ---------- Login page ---------- */
++.login_page {
++  margin: 0;
++  padding: 0;
++  background:
++    radial-gradient(800px 500px at 80% -10%, rgba(0, 122, 255, 0.10), transparent 60%),
++    radial-gradient(700px 600px at 10% 110%, rgba(0, 122, 255, 0.08), transparent 60%),
++    linear-gradient(180deg, #d3d5d8, #c8cacd);
++  min-height: 100vh;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++}
++.center {
++  width: 420px;
++  background: rgba(242, 244, 246, 0.78);
++  backdrop-filter: blur(24px);
++  -webkit-backdrop-filter: blur(24px);
++  border: 1px solid rgba(0, 0, 0, 0.10);
++  border-radius: 28px;
++  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
++  padding: 44px 44px 36px;
++  box-sizing: border-box;
++}
++.brand { text-align: center; margin-bottom: 12px; }
++.brand-logo { width: 72px; height: 72px; color: var(--accent); display: block; margin: 0 auto 12px; filter: drop-shadow(0 4px 16px rgba(0, 122, 255, 0.3)); }
++.brand-name { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.2px; color: var(--text); border: none; padding: 0; }
++.brand-sub { margin: 6px 0 0; font-size: 13px; color: var(--text-dim); letter-spacing: 0.3px; }
++
++.center form { padding: 0; box-sizing: border-box; }
++form .txt_field { position: relative; border-bottom: 2px solid rgba(0, 0, 0, 0.14); margin: 28px 0 32px; }
++.txt_field input {
++  width: 100%;
++  padding: 0 6px;
++  height: 46px;
++  font-size: 16px;
++  border: none;
++  background: none;
++  outline: none;
++  color: var(--text);
+ }
+-select { text-align-last: right; font-family: monospace}
+-option { direction: rtl; font-family: sans-serif}
+-#vlanTable td { text-align: left; }
++.txt_field label {
++  position: absolute;
++  top: 50%;
++  left: 6px;
++  color: var(--text-dim);
++  transform: translateY(-50%);
++  font-size: 16px;
++  pointer-events: none;
++  transition: 0.25s;
++}
++.txt_field span::before {
++  content: '';
++  position: absolute;
++  top: 46px;
++  left: 0;
++  width: 100%;
++  height: 2px;
++  background: var(--accent);
++  transform: scaleX(0);
++  transition: transform 0.3s ease;
++}
++.txt_field input:focus ~ span::before { transform: scaleX(1); }
++.txt_field input:focus ~ label,
++.txt_field input:valid ~ label { top: -9px; color: var(--accent); font-size: 13px; }
++.center input[type=submit] { margin-bottom: 0; padding: 14px; font-size: 15px; width: 100%; }
++#incorrect { color: var(--nok); text-align: center; margin-top: 20px; font-size: 14px; font-weight: 500; }
+diff --git a/html/system.html b/html/system.html
+index d1c908a..ccb776a 100644
+--- a/html/system.html
++++ b/html/system.html
+@@ -5,10 +5,10 @@
+     <link rel="stylesheet" href="style.css">
+     <title data-i18n="sys_title">System Settings</title>
+     <style>
+-      .tab-bar { display: flex; border-bottom: 2px solid #226; margin-bottom: 0; margin-left: 16%; padding: 1px 16px; padding-bottom: 0; }
+-      .tab-btn { padding: 10px 20px; background-color: #ddf; border: none; cursor: pointer; font-size: 1em; border-radius: 8px 8px 0 0; margin-right: 4px; }
+-      .tab-btn:hover { background-color: #aaf; }
+-      .tab-btn.active { background-color: #aaf; font-weight: bold; border-bottom: 2px solid #aaf; margin-bottom: -2px; }
++      .tab-bar { display: flex; margin-bottom: 0; margin-left: 240px; padding: 1px 16px; }
++      .tab-btn { padding: 10px 20px; background-color: transparent; border: none; cursor: pointer; font-size: 14px; color: var(--text-dim); border-radius: 8px 8px 0 0; margin-right: 4px; transition: color 0.15s ease, background-color 0.15s ease; }
++      .tab-btn:hover { background-color: var(--accent-soft); color: var(--text); }
++      .tab-btn.active { background-color: transparent; color: var(--accent); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+       .tab-content { display: none; }
+       .tab-content.active { display: block; }
+     </style>
+@@ -25,57 +25,62 @@
+ 
+     <div id="system-tab" class="tab-content active">
+       <h1 data-i18n="sys_heading">System Settings</h1>
+-      <div class="row">
+-        <div class="lcol"> <label for="ip" data-i18n="sys_ip">IP address:</label></div>
+-        <div class="rcol"> <input id="ip" class="ip" type="text" minlength="7" maxlength="15" size="15"/></div>
+-      </div>
+-      <div class="row">
+-        <div class="lcol"> <label for="netmask" data-i18n="sys_netmask">Netmask:</label></div>
+-        <div class="rcol"><input id="netmask" class="ip" type="text" minlength="7" maxlength="15" size="15"/></div>
+-      </div>
+-      <div class="row">
+-        <div class="lcol"> <label for="gw" data-i18n="sys_gateway">Gateway:</label></div>
+-        <div class="rcol"><input id="gw" class="ip" type="text" minlength="7" maxlength="15" size="15"/></div>
+-      </div>
+-      <div class="row">
+-        <div class="lcol"> <label data-i18n="sys_language">Language:</label></div>
+-        <div class="rcol">
++      <div class="card">
++        <div class="form-grid">
++          <label for="ip" data-i18n="sys_ip">IP address:</label>
++          <input id="ip" class="ip" type="text" minlength="7" maxlength="15" size="15"/>
++          <label for="netmask" data-i18n="sys_netmask">Netmask:</label>
++          <input id="netmask" class="ip" type="text" minlength="7" maxlength="15" size="15"/>
++          <label for="gw" data-i18n="sys_gateway">Gateway:</label>
++          <input id="gw" class="ip" type="text" minlength="7" maxlength="15" size="15"/>
++          <label data-i18n="sys_language">Language:</label>
+           <select id="lang-select" onchange="changeLang()">
+             <option value="en">English</option>
+             <option value="ja">日本語</option>
+             <option value="zh">中文</option>
+           </select>
+         </div>
++        <div class="form-note" data-i18n="sys_ip_note">When updating the above settings, remember to point your browser to the new IP afterwards:</div>
++        <div class="card-actions">
++          <input class="action" id="ip_sub" onclick="ipSub();" type="button" data-i18n="sys_update" value="Update Settings">
++        </div>
++        <div class="form-note" data-i18n="sys_save_label">Save all current settings to Flash:</div>
++        <div class="card-actions">
++          <input class="action" id="flash_sub" onclick="flashSave();" type="button" data-i18n="sys_save" value="Save Settings to Flash">
++        </div>
+       </div>
+-      <br/>
+-      <span data-i18n="sys_ip_note">When updating the above settings, remember to point your browser to the new IP afterwards:</span><br/>
+-      <input style="width:40%;" class="action" id="ip_sub" onclick="ipSub();" type="button" data-i18n="sys_update" value="Update Settings"><br/>
+-      <br/>
+-      <span data-i18n="sys_save_label">Save all current settings to Flash:</span><br/>
+-      <input style="width:40%;" class="action" id="flash_sub" onclick="flashSave();" type="button" data-i18n="sys_save" value="Save Settings to Flash">
+     </div>
+ 
+     <div id="advanced-tab" class="tab-content">
+       <h1 data-i18n="sys_advanced">Advanced Settings</h1>
+-      <div class="lcol"> <label for="config_display" data-i18n="sys_startup_config">Startup configuration:</label></div>
+-      <textarea id="config_display" rows="8" cols="60"></textarea>
+-      <br/><br/>
+-      <span data-i18n="sys_startup_warn">Be careful when saving the directly edited startup configuration, you can lock yourself out:</span><br/>
+-      <input style="width:40%;" class="action" id="clear_config" onclick="clearConfig();" type="button" data-i18n="sys_clear_config" value="Clear Startup Config">
+-      <br/>
+-      <input style="width:40%;" class="action" id="flash_startup_sub" onclick="flashStartupSave();" type="button" data-i18n="sys_save_startup" value="Save Startup Settings to Flash">
+-      <br/>
+-      <input style="width:40%;" class="action" id="switch_reset" onclick="resetSwitch();" type="button" data-i18n="sys_reset" value="Reset Switch">
++      <div class="card">
++        <label for="config_display" data-i18n="sys_startup_config">Startup configuration:</label>
++        <textarea id="config_display" rows="8"></textarea>
++        <div class="form-note" data-i18n="sys_startup_warn">Be careful when saving the directly edited startup configuration, you can lock yourself out:</div>
++        <div class="card-actions">
++          <input class="action" id="clear_config" onclick="clearConfig();" type="button" data-i18n="sys_clear_config" value="Clear Startup Config">
++        </div>
++        <div class="card-actions">
++          <input class="action" id="flash_startup_sub" onclick="flashStartupSave();" type="button" data-i18n="sys_save_startup" value="Save Startup Settings to Flash">
++        </div>
++        <div class="card-actions">
++          <input class="action" id="switch_reset" onclick="resetSwitch();" type="button" data-i18n="sys_reset" value="Reset Switch">
++        </div>
++      </div>
+     </div>
+ 
+     <div id="console-tab" class="tab-content">
+       <h1 data-i18n="sys_console">Console Command</h1>
+-      <label for="console_command" data-i18n="sys_enter_cmd">Enter command:</label>
+-      <input type="text" id="console_cmd" name="console_cmd" style="width:40%;">
+-      <input style="width:20%;" class="action" id="cmd_sub" onclick="cmdSub();" type="button" data-i18n="sys_send_cmd" value="Send Command"><br/>
+-      <br/><br/> 
+-      <span data-i18n="sys_console_warn">Be careful when entering console commands, you can lock yourself out!</span><br/>
+-
++      <div class="card">
++        <div class="form-grid">
++          <label for="console_cmd" data-i18n="sys_enter_cmd">Enter command:</label>
++          <input type="text" id="console_cmd" name="console_cmd"/>
++        </div>
++        <div class="card-actions">
++          <input class="action" id="cmd_sub" onclick="cmdSub();" type="button" data-i18n="sys_send_cmd" value="Send Command">
++        </div>
++        <div class="form-note" data-i18n="sys_console_warn">Be careful when entering console commands, you can lock yourself out!</div>
++      </div>
+     </div>
+ 
+     </div>
+@@ -89,6 +94,13 @@
+         document.getElementById(tabId).classList.add('active');
+         evt.currentTarget.classList.add('active');
+       }
++      // 页签按钮等宽：取当前语言下最宽的一个，统一设置宽度（i18n 覆写文字后执行）
++      document.addEventListener('DOMContentLoaded', function () {
++        var btns = document.querySelectorAll('.tab-btn');
++        var max = 0;
++        btns.forEach(function (b) { max = Math.max(max, b.offsetWidth); });
++        btns.forEach(function (b) { b.style.width = max + 'px'; });
++      });
+     </script>
+   </body>
+ </html>
+diff --git a/html/update.html b/html/update.html
+index 8be938b..6959c9d 100644
+--- a/html/update.html
++++ b/html/update.html
+@@ -7,14 +7,31 @@
+   </head>
+   <body>
+     <nav id="sidebar"></nav>
+-    <div style="margin-left:16%;padding:1px 16px;height:1000px;width:40%;">
++    <div style="margin-left:16%;padding:1px 16px;height:1000px;">
+     <h1 data-i18n="update_heading">Firmware Update</h1>
+-    <form enctype="multipart/form-data" action="/upload" method="POST">
+-    <input type="hidden" name="MAX_FILE_SIZE" value="1000000" />
+-      <span data-i18n="update_instruction">Choose a firmware update file to upload:</span> <br/> <br/>
+-      <input name="uploadedfile" type="file" accept=".bin" /><br />
+-    <input style="margin-top:3em" type="submit" data-i18n="update_upload" value="Upload File" />
+-    </form>
++    <div class="card">
++      <form enctype="multipart/form-data" action="/upload" method="POST">
++        <input type="hidden" name="MAX_FILE_SIZE" value="1000000" />
++        <div class="form-note" data-i18n="update_instruction">Choose a firmware update file to upload:</div>
++        <div class="file-row">
++          <input id="uploadedfile" name="uploadedfile" type="file" accept=".bin" />
++          <label class="file-btn" for="uploadedfile">
++            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg>
++            <span data-i18n="update_choose">Choose file</span>
++          </label>
++          <span class="file-name" id="file_name"></span>
++        </div>
++        <div class="card-actions">
++          <input type="submit" class="action" data-i18n="update_upload" value="Upload File" />
++        </div>
++      </form>
++    </div>
+     <script src="/navigation.js"></script>
++    <script>
++      document.getElementById('uploadedfile').addEventListener('change', function () {
++        var n = document.getElementById('file_name');
++        n.textContent = this.files.length ? this.files[0].name : '';
++      });
++    </script>
+   </body>
+ </html>
+diff --git a/html/vlan.html b/html/vlan.html
+index db1aa4c..6726756 100644
+--- a/html/vlan.html
++++ b/html/vlan.html
+@@ -5,28 +5,27 @@
+   <link rel="stylesheet" href="style.css">
+   <title data-i18n="vlan_title">FreeSwitchOS VLAN Configuration</title>
+   </head>
+-  <body>
++  <body class="vlan">
+     <nav id="sidebar"></nav>
+     <div style="margin-left:16%;padding:1px 16px;height:1000px;">
+     <div id="ports"></div>
+     <h1 data-i18n="vlan_heading">VLAN Configuration</h1>
+     <form id="vform" action="/vlan.html">
+-      <div>
++      <div class="vrow">
+         <label for="vlanSelect" data-i18n="vlan_select">VLAN Select:</label>
+-        <select id="vlanSelect" style="margin: 0 0 0 8px">
+-          <option value="" disabled selected data-i18n="vlan_choose">— VLAN Choose —</option>
++        <select id="vlanSelect">
++          <option value="" disabled selected data-i18n="vlan_choose">VLAN Choose</option>
+         </select>
+       </div>
+-      <br/>
+-      <div>
++      <div class="vrow">
+         <label for="vid" data-i18n="vlan_id">VLAN ID:</label>
+-        <input type="number" min="1" max="4094" id="vid" name="vid">
+-        <button type="button" style="margin: 0 0 0 24px" onclick="fetchVLAN();" data-i18n="vlan_get_config">Get Configuration</button>
++        <input type="number" min="1" max="4094" id="vid" name="vid" placeholder="1-4094">
++        <button type="button" onclick="fetchVLAN();" data-i18n="vlan_get_config">Get Configuration</button>
++      </div>
++      <div class="vrow">
++        <label for="vname" data-i18n="vlan_name">VLAN Name:</label>
++        <input type="text" id="vname" name="vname" data-i18n-placeholder="vlan_name_ph">
+       </div>
+-      <br/><br/>
+-      <label for="vname" data-i18n="vlan_name">VLAN Name:</label>
+-      <input type="text" id="vname" name="vname"><br><br>
+-      <br/>
+       <h2 data-i18n="vlan_tagged">Tagged Ports</h2>
+       <div id="tPorts"><button type="button" style="transform: translateY(-100%);margin: 0 50px 0 0" onclick="utClicked(true);" data-i18n="vlan_select_all">Select all</button></div>
+       <h2 data-i18n="vlan_untagged">Untagged Ports</h2>
+@@ -34,11 +33,13 @@
+       <h2 data-i18n="vlan_pvid">Use as default VLAN for incoming traffic (PVID)</h2>
+       <div id="pPorts"><button type="button" style="transform: translateY(-100%); margin: 0 50px 0 0" onclick="pvClicked(true);" data-i18n="vlan_select_all">Select all</button> </div>
+       <script src="/vlan.js"></script>
+-      <br/> <input style="width:40%;" class="action" id="vlan_sub" onclick="vlanSub();" type="button" data-i18n="vlan_update" value="Update / Create">
++      <div class="card-actions">
++        <input class="action" id="vlan_sub" onclick="vlanSub();" type="button" data-i18n="vlan_update" value="Update / Create">
++      </div>
+       <script src="/vlan_sub.js"></script>
+     </form>
+     <h2 data-i18n="vlan_configured">Configured VLANs</h2>
+-    <table id="vlanTable" style="width:90%">
++    <table id="vlanTable">
+       <thead>
+         <tr>
+           <th>VLAN</th>
+diff --git a/html/vlan.js b/html/vlan.js
+index 8e18f27..4109f96 100644
+--- a/html/vlan.js
++++ b/html/vlan.js
+@@ -18,9 +18,9 @@ function vlanForm() {
+     inp.setAttribute('onclick', `setC("u", ${i}, false);`);
+     const o = document.createElement("img");
+     if (pIsSFP[i - 1]) {
+-      o.src = "sfp.svg"; o.width ="60"; o.height ="60";
++      o.src = "sfp.svg"; o.width = "66"; o.height = "66";
+     } else {
+-      o.src = "port.svg"; o.width = "40"; o.height = "40";
++      o.src = "port.svg"; o.width = "66"; o.height = "66";
+     }
+     l.appendChild(inp); l.appendChild(o);
+     d.appendChild(l)
+@@ -149,6 +149,7 @@ async function loadVlanTable() {
+     td = document.createElement('td');
+     if (v.id !== 1) {
+       btn = document.createElement('button');
++      btn.type = 'button';
+       btn.textContent = '✕';
+       (function(vid) {
+         btn.onclick = function() { deleteVlan(vid); };
+@@ -198,13 +199,20 @@ function loadVlanList() {
+   sendXHTTP(xhttp);
+ }
+ 
++function syncVlanSelectColor() {
++  var sel = document.getElementById('vlanSelect');
++  sel.style.color = sel.selectedIndex === 0 ? 'var(--text-dim)' : 'var(--text)';
++}
++
+ window.addEventListener("load", function() {
+   update( () => {
+     vlanForm();
+     refreshVlanViews();
++    syncVlanSelectColor();
+     document.getElementById('vlanSelect').onchange = function() {
+       document.getElementById('vid').value = this.value;
+       fetchVLAN();
++      syncVlanSelectColor();
+     };
+     const interval = setInterval(update, 2000);
+   });
+diff --git a/httpd/httpd.c b/httpd/httpd.c
+index 7b90adf..d84a8fb 100644
+--- a/httpd/httpd.c
++++ b/httpd/httpd.c
+@@ -245,7 +245,9 @@ __xdata uint8_t *scan_header(__xdata uint8_t *p)
+ {
+ 	content_type = 0;
+ 	session = 0;
+-	authenticated = 0;
++	// Login removed: LAN-only management, always authenticated.
++	// The session machinery below is left in place but can never gate access.
++	authenticated = 1;
+ 
+ 	while (*p != '\r' || *(p + 1) != '\n' || *(p + 2) != '\r' || *(p + 3) != '\n') {
+ 		dbg_char(*p);
+@@ -467,31 +469,6 @@ void handle_post(void)
+ 			send_bad_request();
+ 			return;
+ 		}
+-	} else if (is_word(request_path, "login")) {
+-		dbg_string("POST login\n");
+-
+-		if (!content_type || !is_word(content_type, "application/x-www-form-urlencoded")) {
+-			dbg_string("Bad request!\n");
+-			send_bad_request();
+-			return;
+-		}
+-
+-		p += 8; // Read also over "pwd="
+-		if (is_url_word_x(p, passwd)) {
+-			dbg_string("Password accepted!\n");
+-			read_reg_timer(&last_session_use);
+-			gen_random_bytes(session_id, SESSION_ID_LENGTH);
+-			session_id[SESSION_ID_LENGTH] = '\0';
+-			slen = strtox(outbuf, "HTTP/1.1 302 Found\r\nConnection: close\r\nLocation: index.html\r\n" \
+-					      "Set-Cookie: session=");
+-			for (register uint8_t i = 0; i < SESSION_ID_LENGTH; i++)
+-				outbuf[slen++] = session_id[i];
+-			slen += strtox(outbuf + slen, "; SameSite=Strict\r\n\r\n");
+-		} else {
+-			dbg_string("Password invalid!\n");
+-			slen = strtox(outbuf, "HTTP/1.1 302 Found\r\nConnection: close\r\nLocation: login.html\r\n\r\n");
+-		}
+-		return;
+ 	} else if (s->tstate == TSTATE_MULTIPART || is_word(request_path, "upload") || is_word(request_path, "config")) {
+ 		dbg_string("POST upload/config request\n");
+ 		if (!authenticated) {
+@@ -698,8 +675,7 @@ void httpd_appcall(void)
+ 			}
+ 		} else {
+ 			dbg_string("Have entry, authenticated: "); dbg_byte(authenticated); dbg_char('\n');
+-			if (!authenticated && !(f_data[entry].start == FDATA_START_login_html 
+-						|| f_data[entry].start == FDATA_START_port_svg 
++			if (!authenticated && !(f_data[entry].start == FDATA_START_port_svg
+ 						|| f_data[entry].start == FDATA_START_sfp_svg
+ 						|| f_data[entry].start == FDATA_START_style_css)) {
+ 				send_to_login();
+@@ -713,8 +689,8 @@ void httpd_appcall(void)
+ 			slen = strtox(outbuf, "HTTP/1.1 200 OK\r\nContent-Type: ");
+ 			slen += strtox(outbuf + slen, mime_strings[f_data[entry].mime]);
+ 			/* 'unsafe-inline' is needed for the inline onclick handlers
+-			 * and the inline <script> on login.html. Connection: close is
+-			 * required because this httpd closes the connection after every
++			 * and inline <script> tags. Connection: close is required
++			 * because this httpd closes the connection after every
+ 			 * response; without advertising it a browser reuses the socket
+ 			 * from its keep-alive pool and the next request hits the already
+ 			 * closed connection (a POST is then dropped without a retry). */
+diff --git a/httpd/page_impl.c b/httpd/page_impl.c
+index 5a3433d..58ec2fc 100644
+--- a/httpd/page_impl.c
++++ b/httpd/page_impl.c
+@@ -770,6 +770,19 @@ void send_status(void)
+ 		slen += strtox(outbuf + slen, "\",\"rxB\":\"0x");
+ 		STAT_GET(STAT_COUNTER_ERR_PKTS, i);
+ 		reg_to_html(RTL837X_STAT_V_HIGH);	// 32bit RX packet errors
++
++		// Byte counters for the overview dashboard: txBytes = ifOutOctets,
++		// rxBytes = ifInOctets (see STAT_COUNTER_TX_BYTES / RX_BYTES)
++		slen += strtox(outbuf + slen, "\",\"txBytes\":\"0x");
++		STAT_GET(STAT_COUNTER_TX_BYTES, i);
++		reg_to_html(RTL837X_STAT_V_HIGH);
++		reg_to_html(RTL837X_STAT_V_LOW);
++
++		slen += strtox(outbuf + slen, "\",\"rxBytes\":\"0x");
++		STAT_GET(STAT_COUNTER_RX_BYTES, i);
++		reg_to_html(RTL837X_STAT_V_HIGH);
++		reg_to_html(RTL837X_STAT_V_LOW);
++
+ 		slen += strtox(outbuf + slen, "\"}");
+ 		if (i < machine.max_port)
+ 			char_to_html(',');
+diff --git a/rtl837x_port.h b/rtl837x_port.h
+index a5ce278..c7b3b0d 100644
+--- a/rtl837x_port.h
++++ b/rtl837x_port.h
+@@ -8,6 +8,12 @@
+ #define STAT_COUNTER_RX_PKTS	47
+ #define STAT_COUNTER_ERR_PKTS	48
+ 
++// Byte counters (RTL8372 MIB pairs 0/1):
++//   idx 0 = ifInOctets  = bytes received into the port (device -> switch)
++//   idx 1 = ifOutOctets = bytes transmitted out of the port (switch -> device)
++#define STAT_COUNTER_RX_BYTES	0
++#define STAT_COUNTER_TX_BYTES	1
++
+ #define STAT_GET(cnt, port) \
+ 	REG_WRITE(RTL837X_STAT_GET, 0x00, 0x00, cnt >> 3, (cnt << 5) | (port << 1) | 1); \
+ 	do { \

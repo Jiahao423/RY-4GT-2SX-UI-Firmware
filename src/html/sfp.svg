@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <rect class="bg" x="8" y="10" width="16" height="10" rx="1.5" fill="#f2f2f4" stroke="#8e8e93" stroke-width="1.4"/>
+  <g fill="#8e8e93">
+    <rect x="11" y="12" width="4" height="5" rx="0.5"/>
+    <rect x="17" y="12" width="4" height="5" rx="0.5"/>
+  </g>
+  <circle class="led" cx="11" cy="6" r="1.6" fill="#34c759"/>
+  <circle class="led" cx="21" cy="6" r="1.6" fill="#34c759"/>
+</svg>
