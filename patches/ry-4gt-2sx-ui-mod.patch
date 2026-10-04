@@ -42,6 +42,40 @@ index 3200af0..76c50d5 100644
 +ip 192.168.0.253
 +gw 192.168.0.1
 +netmask 255.255.255.0
+diff --git a/html/dashboard.js b/html/dashboard.js
+new file mode 100644
+index 0000000..39b665e
+--- /dev/null
++++ b/html/dashboard.js
+@@ -0,0 +1,28 @@
++function fmtBytes(n) {
++  n = Number(n);
++  if (n < 1024) return n + ' B';
++  var u = ['KB', 'MB', 'GB', 'TB', 'PB'];
++  var i = -1;
++  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
++  return n.toFixed(1) + ' ' + u[i];
++}
++
++function updateTiles() {
++  if (!numPorts) return;
++  var portsEl = document.getElementById('tile-ports');
++  var speedEl = document.getElementById('tile-speed');
++  var txEl = document.getElementById('tile-tx');
++  var rxEl = document.getElementById('tile-rx');
++  var up = 0, maxLink = 0;
++  for (var i = 0; i < numPorts; i++) {
++    if (pState[i] > 0) { up++; if (pState[i] > maxLink) maxLink = pState[i]; }
++  }
++  if (portsEl) portsEl.textContent = up + ' / ' + numPorts;
++  if (speedEl) speedEl.textContent = maxLink > 0 ? linkText(maxLink + 1) : '–';
++  var tx = 0n, rx = 0n;
++  for (var j = 0; j < numPorts; j++) { tx += txBytes[j]; rx += rxBytes[j]; }
++  if (txEl) txEl.textContent = fmtBytes(tx);
++  if (rxEl) rxEl.textContent = fmtBytes(rx);
++}
++
++setInterval(updateTiles, 1500);
 diff --git a/html/i18n.js b/html/i18n.js
 index bab49dc..0962e54 100644
 --- a/html/i18n.js
@@ -1823,7 +1857,7 @@ index 8e18f27..4109f96 100644
      const interval = setInterval(update, 2000);
    });
 diff --git a/httpd/httpd.c b/httpd/httpd.c
-index 7b90adf..d84a8fb 100644
+index 7b90adf..4ad4d71 100644
 --- a/httpd/httpd.c
 +++ b/httpd/httpd.c
 @@ -245,7 +245,9 @@ __xdata uint8_t *scan_header(__xdata uint8_t *p)
@@ -1837,7 +1871,32 @@ index 7b90adf..d84a8fb 100644
  
  	while (*p != '\r' || *(p + 1) != '\n' || *(p + 2) != '\r' || *(p + 3) != '\n') {
  		dbg_char(*p);
-@@ -467,31 +469,6 @@ void handle_post(void)
+@@ -352,6 +354,9 @@ uint8_t stream_upload(uint16_t bptr)
+ 				} else {
+ 					print_string("Checksum incorrect! Aborting.\n");
+ 					uip_close();
++					// The upload handler set the SYS LED to FAST; nothing
++					// resets the chip on this path, so restore a solid LED.
++					set_sys_led_state(SYS_LED_ON);
+ 				}
+ 			}
+ 			// Make sure there is a 0 at the end of the uploaded data
+@@ -361,9 +366,13 @@ uint8_t stream_upload(uint16_t bptr)
+ 			flash_write_bytes(flash_buf);
+ 			if (bptr >= uip_len)
+ 				return 0;
+-			if(!verify_crc)
++			if(!verify_crc) {
+ 				//ugly hack to signal connection finished after config upload.
+ 				uip_close();
++				// Config uploads never reset the chip, so clear the FAST
++				// SYS LED state set by the upload handler.
++				set_sys_led_state(SYS_LED_ON);
++			}
+ 			return 1;
+ 		}
+ 		if (p[bptr] == boundary[bindex]) {
+@@ -467,31 +476,6 @@ void handle_post(void)
  			send_bad_request();
  			return;
  		}
@@ -1869,7 +1928,7 @@ index 7b90adf..d84a8fb 100644
  	} else if (s->tstate == TSTATE_MULTIPART || is_word(request_path, "upload") || is_word(request_path, "config")) {
  		dbg_string("POST upload/config request\n");
  		if (!authenticated) {
-@@ -698,8 +675,7 @@ void httpd_appcall(void)
+@@ -698,8 +682,7 @@ void httpd_appcall(void)
  			}
  		} else {
  			dbg_string("Have entry, authenticated: "); dbg_byte(authenticated); dbg_char('\n');
@@ -1879,7 +1938,7 @@ index 7b90adf..d84a8fb 100644
  						|| f_data[entry].start == FDATA_START_sfp_svg
  						|| f_data[entry].start == FDATA_START_style_css)) {
  				send_to_login();
-@@ -713,8 +689,8 @@ void httpd_appcall(void)
+@@ -713,8 +696,8 @@ void httpd_appcall(void)
  			slen = strtox(outbuf, "HTTP/1.1 200 OK\r\nContent-Type: ");
  			slen += strtox(outbuf + slen, mime_strings[f_data[entry].mime]);
  			/* 'unsafe-inline' is needed for the inline onclick handlers
@@ -1914,6 +1973,60 @@ index 5a3433d..58ec2fc 100644
  		slen += strtox(outbuf + slen, "\"}");
  		if (i < machine.max_port)
  			char_to_html(',');
+diff --git a/machine.c b/machine.c
+index 320c74c..be2876b 100644
+--- a/machine.c
++++ b/machine.c
+@@ -309,25 +309,39 @@ __code const struct machine machine = {
+ 	.sfp_port[1].sds = 0,
+ 	.sfp_port[1].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 }, /* GPIO 40 */
+ 	.reset_pin = GPIO_NA,
+-	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
++	.high_leds = { .mux = LED_27 | LED_28_SYS | LED_29, .enable = LED_28_SYS | LED_29 },
+ 	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+ 	.led_sets = {
+-		{ /* RJ45: Green LED */
+-			LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+-			0,
+-			/* Amber LED */
++		{ /* RJ45: Green LED (LED0) */
++			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
++			/* Amber LED (LED1) */
+ 			LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+-			0
+-		}, { /* SFP PORT: SINGLE GREEN LED */
+-			LEDS_10M | LEDS_100M | LEDS_1G | LEDS_2G5 | LEDS_10G | LEDS_LINK | LEDS_ACT,
+-			0,
+ 			0,
++			LEDS_2G5 | LEDS_LINK | LEDS_ACT
++		}, { /* SFP PORT: SINGLE GREEN LED */
++			LEDS_10G | LEDS_5G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
++			LEDS_10G | LEDS_LINK,
+ 			0,
++			LEDS_DUPLEX | LEDS_COL
+ 		},
+ 	},
++	.led_mux_custom = 1,
++	.led_mux = {
++		0x0c,0x0d,0x0e,0x10,0x11,0x12,0x14,0x3f,0x15,0x16,0x18,0x0e,0x19,0x11,0x12,0x1a,0x15,0x16,0x1c,0x19,0x1a,0x1d,0x1d,0x1e,0x1e,0x20,0x21,0x22
++	},
+ };
+ 
+-void machine_custom_init(void) { }
++void machine_custom_init(void)
++{
++	// Full IO-enable mask matching the OEM firmware on this board.
++	// The chip default (0x77ffff40) leaves the port 1 LED engine IO disabled,
++	// which is why port 1's LED stayed dark. Must be a whole-register write:
++	// bit 6 alone is not what the OEM sets.
++	REG_SET(RTL837X_REG_LED_GLB_IO_EN, 0x7624155b);
++	reg_bit_set(RTL837X_REG_LED_MODE, 17);
++	reg_bit_clear(RTL837X_REG_LED_MODE, 9);
++	reg_bit_clear(RTL837X_REG_LED_MODE, 7);
++}
+ 
+ #elif defined MACHINE_SWTG018AS_A_V_2_0
+ __code const struct machine machine = {
 diff --git a/rtl837x_port.h b/rtl837x_port.h
 index a5ce278..c7b3b0d 100644
 --- a/rtl837x_port.h

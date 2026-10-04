@@ -354,6 +354,9 @@ uint8_t stream_upload(uint16_t bptr)
 				} else {
 					print_string("Checksum incorrect! Aborting.\n");
 					uip_close();
+					// The upload handler set the SYS LED to FAST; nothing
+					// resets the chip on this path, so restore a solid LED.
+					set_sys_led_state(SYS_LED_ON);
 				}
 			}
 			// Make sure there is a 0 at the end of the uploaded data
@@ -363,9 +366,13 @@ uint8_t stream_upload(uint16_t bptr)
 			flash_write_bytes(flash_buf);
 			if (bptr >= uip_len)
 				return 0;
-			if(!verify_crc)
+			if(!verify_crc) {
 				//ugly hack to signal connection finished after config upload.
 				uip_close();
+				// Config uploads never reset the chip, so clear the FAST
+				// SYS LED state set by the upload handler.
+				set_sys_led_state(SYS_LED_ON);
+			}
 			return 1;
 		}
 		if (p[bptr] == boundary[bindex]) {

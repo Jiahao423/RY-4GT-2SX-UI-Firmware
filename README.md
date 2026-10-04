@@ -27,8 +27,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 固件文件 | `firmware/rtlplayground-v2fix6-20260808.bin`（512KB） |
-| MD5 | `b43f119ba9de74db500d434fe811ac81` |
+| 固件文件 | `firmware/rtlplayground-v2fix7-20260929.bin`（512KB） |
+| MD5 | `41c8d430a940575d2a72ebbb4b4df0a9` |
 | 构建基线 | RTLPlayground commit `c86d4b3`（v0.1.0） |
 | 内嵌默认 IP | `192.168.0.253`（网关 `192.168.0.1`，网段 `255.255.255.0`） |
 
@@ -36,12 +36,12 @@
 
 ## 已知问题
 
-- **网口指示灯闪烁异常**：当前固件下网口指示灯会出现不正常的闪烁。这是已知的固件层面问题（推测是该板 LED 控制方式与原厂固件不同所致），不影响局域网数据转发。
+- **网口指示灯闪烁异常**：已在 **v2fix7** 修复。根因是固件两处 LED 处理缺陷（端口 1 的 LED 引擎 IO 未使能、固件升级流程结束后 STATUS 灯未复位），现均已修正；旧版固件仍会遇到该现象。
 
 ## 仓库结构
 
 ```
-├── firmware/                 固件二进制（rtlplayground-v2fix6-20260808.bin + CHECKSUM.md5）
+├── firmware/                 固件二进制（rtlplayground-v2fix7-20260929.bin + CHECKSUM.md5）
 ├── screenshots/              Web 界面截图：original-ui.jpg（原版）、modified-ui.jpg（美化后）
 ├── patches/                  ry-4gt-2sx-ui-mod.patch（对 RTLPlayground 的完整源码改动）
 ├── src/                      改动后的源文件（覆盖原仓库同名文件即可重新构建）

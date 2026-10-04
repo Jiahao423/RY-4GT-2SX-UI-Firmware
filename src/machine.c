@@ -1,0 +1,1082 @@
+#include "machine.h"
+#include "rtl837x_pins.h"
+#include "rtl837x_leds.h"
+#include "rtl837x_sfr.h"
+#include "rtl837x_regs.h"
+#include "rtl837x_common.h"
+
+#ifdef MACHINE_KP_9000_6XHML_X2
+__code const struct machine machine = {
+	.machine_name = "keepLink KP-9000-6XHML-X2",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+	.phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 1, 0, 0, 0, 0, 2},
+	// Left SFP port (5)
+	.sfp_port[0].pin_detect = GPIO50_I2C_SCL2_UART1_TX,
+	.sfp_port[0].pin_los = GPIO10_LED10,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 0,
+	.sfp_port[0].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 },
+	// Right SFP port (6)
+	.sfp_port[1].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[1].pin_los = GPIO37,
+	.sfp_port[1].pin_tx_disable = GPIO_NA,
+	.sfp_port[1].sds = 1,
+	.sfp_port[1].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO54_ACL_BIT2_EN,
+	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	/* Conditions for LED on:
+	 * dual led orange: ledset_0 & ledset_2
+	 * dual led green: ledset_2 & !ledset_0
+	 * single right led green: ledset_0 & !ledset_1
+	*/
+	.led_sets = { { LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+			LEDS_2G5 | LEDS_LINK | LEDS_10G,
+			LEDS_1G | LEDS_LINK,
+			0 },
+		    },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_KP_9000_6XH_X
+__code const struct machine machine = {
+	.machine_name = "keepLink KP-9000-6XH-X",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+	.phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO_NA,
+	/* Conditions for LED on:
+	 * dual led orange: ledset_0 & ledset_2
+	 * dual led green: ledset_2 & !ledset_0
+	 * single right led green: ledset_0 & !ledset_1
+	*/
+	.led_sets = { { LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+			LEDS_2G5 | LEDS_LINK | LEDS_10G,
+			LEDS_1G | LEDS_LINK,
+			0 },
+		    },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_KP_9000_6XH_X2
+__code const struct machine machine = {
+	.machine_name = "keepLink KP-9000-6XH-X2",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 6, 1, 2, 3, 4, 5},
+	.phys_to_log_port = {4, 5, 6, 7, 8, 3, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 2, 0, 0, 0, 0, 1},
+
+	// Left SFP port
+	.sfp_port[0].pin_detect = GPIO38,
+	.sfp_port[0].pin_los = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c =  { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+	// Right SFP port
+	.sfp_port[1].pin_detect = GPIO37,
+	.sfp_port[1].pin_los = GPIO_NA,
+	.sfp_port[1].sds = 0,
+	.sfp_port[1].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+	.reset_pin = GPIO48_I2C_SCL1,   // Button-Switch is unpopulated on PCB, but can be added manually (hole in case is already there)
+	.high_leds = { .mux =  LED_28_SYS | LED_29, .enable = LED_27 | LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	.led_sets = {
+			{
+				LEDS_2G5 | LEDS_LINK,												// Left LED (Amber)
+				LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,   // Right LED (Green)
+				0,
+				0
+			},
+			{
+				LEDS_10G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+				0,
+				0,
+				0
+			},
+	 },
+	.led_mux_custom = 1,
+	.led_mux = {
+				0x00,0x01,0x04,0x05,0x08,0x09,0x0c,0x3f,0x0d,0x10,
+				0x11,0x0e,0x14,0x11,0x12,0x15,0x15,0x16,0x18,0x19,
+				0x1a,0x19,0x1d,0x1e,0x1c,0x1d,0x20,0x21
+		},
+	};
+
+void machine_custom_init(void) {
+	reg_bit_set(RTL837X_REG_LED_GLB_IO_EN, 6);
+}
+
+#elif defined MACHINE_KP_9000_9XH_X_EU
+__code const struct machine machine = {
+	.machine_name = "keepLink KP-9000-9XH-X-EU",
+	.isRTL8373 = 1,
+	.min_port = 0,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {1, 2, 3, 4, 5, 6, 7, 8, 9},
+	.phys_to_log_port = {0, 1, 2, 3, 4, 5, 6, 7, 8},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO_NA,
+	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	.led_sets = { { LEDS_2G5 | LEDS_TWO_PAIR_1G | LEDS_1G | LEDS_500M | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G | LEDS_TWO_PAIR_5G | LEDS_5G | LEDS_TWO_PAIR_2G5,
+			LEDS_2G5 | LEDS_LINK,
+			LEDS_1G | LEDS_LINK, 
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT },
+		    },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_KP_9000_9XHML_X_V2_2
+__code const struct machine machine = {
+	.machine_name = "keepLink KP-9000-9XHML-X V2.2",
+	.isRTL8373 = 1,
+	.min_port = 0,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = { 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+	.phys_to_log_port = { 0, 1, 2, 3, 4, 5, 6, 7, 8 },
+	.is_sfp = { 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO54_ACL_BIT2_EN,
+	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+	.led_sets = {
+		{   /* Set 0 for RJ45 connectors */
+			/* LED0: Right Green */
+			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			/* LED1: Left Orange */
+			LEDS_2G5 | LEDS_LINK,
+			/* LED2: Left Green */
+			LEDS_1G | LEDS_LINK,
+			/* LED3: None */
+			0,
+		}, { /* Set 1 for SFP port */
+			/* LED0: Single Green "9" LED */
+			LEDS_2G5 | LEDS_TWO_PAIR_1G | LEDS_1G | LEDS_500M | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G | LEDS_TWO_PAIR_5G | LEDS_5G | LEDS_TWO_PAIR_2G5,
+			/* LED1: D23 LED on PCB */
+			LEDS_1G | LEDS_LINK,
+			/* LED2: D22 LED on PCB */
+			LEDS_2G5 | LEDS_LINK,
+			/* LED3: Unused */
+			LEDS_COL | LEDS_DUPLEX,
+		}, { /* Set 2: Unused, but set to same things as stock firmware for consistency */
+			LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			LEDS_1G | LEDS_LINK | LEDS_ACT,
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT | LEDS_5G,
+			LEDS_10G | LEDS_ACT | LEDS_LINK,
+		}, { /* Set 3: Unused, but set to same things as stock firmware for consistency */
+			LEDS_TX,
+			LEDS_RX,
+			LEDS_2G5 | LEDS_TWO_PAIR_1G | LEDS_1G | LEDS_500M | LEDS_100M | LEDS_10M | LEDS_ACT | LEDS_10G | LEDS_TWO_PAIR_5G | LEDS_5G | LEDS_TWO_PAIR_2G5,
+			LEDS_2G5 | LEDS_TWO_PAIR_1G | LEDS_1G | LEDS_500M | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_10G | LEDS_TWO_PAIR_5G | LEDS_5G | LEDS_TWO_PAIR_2G5,
+		},
+	},
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_KP_9000_9XHML_X_V3_1
+__code const struct machine machine = {
+	.machine_name = "keepLink KP-9000-9XHML-X V3.1",
+	.isRTL8373 = 1,
+	.min_port = 0,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {1, 2, 3, 4, 5, 6, 7, 8, 9},
+	.phys_to_log_port = {0, 1, 2, 3, 4, 5, 6, 7, 8},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO38,
+	.sfp_port[0].pin_los = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO48_I2C_SCL1,
+	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.led_sets = {
+		{   /* RJ45: First LED, yellow, second LED: green */
+			LEDS_2G5 | LEDS_LINK,
+            LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			0,
+			0,
+		}, { /* SFP PORT, SINGLE GREEN LED */
+			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+			0,
+			0,
+			0,
+		}},
+	.led_mux_custom = 1,
+	.led_mux = {0x00, 0x01, 0x04, 0x05, 0x08, 0x09, 0x0c, 0x09, 0x0d, 0x10,
+				0x11, 0x0e, 0x14, 0x11, 0x12, 0x15, 0x15, 0x16, 0x18, 0x19,
+				0x1a, 0x19, 0x1d, 0x1e, 0x1c, 0x1d, 0x20, 0x21},
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_SWGT024_V2_0_MANAGED
+__code const struct machine machine = {
+	.machine_name = "SWGT024 V2.0 Managed",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 6, 1, 2, 3, 4, 5},
+	.phys_to_log_port = {4, 5, 6, 7, 8, 3, 0, 0, 0},
+	.is_sfp= {0, 0, 0, 2, 0, 0, 0, 0, 1},
+	// Left SFP port (J4)
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO_NA,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 }, /* GPIO 39 */
+	// Right SFP port (J2)
+	.sfp_port[1].pin_detect = GPIO50_I2C_SCL2_UART1_TX,
+	.sfp_port[1].pin_los = GPIO_NA,
+	.sfp_port[1].pin_tx_disable = GPIO_NA,
+	.sfp_port[1].sds = 0,
+	.sfp_port[1].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 }, /* GPIO 40 */
+	.reset_pin = GPIO54_ACL_BIT2_EN,
+	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	.led_sets = {
+		{ /* RJ45: Green LED */
+			LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+			0,
+			/* Amber LED */
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+			0
+		}, { /* SFP PORT: SINGLE GREEN LED */
+			LEDS_10M | LEDS_100M | LEDS_1G | LEDS_2G5 | LEDS_10G | LEDS_LINK | LEDS_ACT,
+			0,
+			0,
+			0,
+		},
+	},
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_SWGT024_V2_0_UNMANAGED
+__code const struct machine machine = {
+	.machine_name = "SWGT024 V2.0 Unmanaged",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 6, 1, 2, 3, 4, 5},
+	.phys_to_log_port = {4, 5, 6, 7, 8, 3, 0, 0, 0},
+	.is_sfp= {0, 0, 0, 2, 0, 0, 0, 0, 1},
+	// Left SFP port (J4)
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 }, /* GPIO 39 */
+	// Right SFP port (J2)
+	.sfp_port[1].pin_detect = GPIO50_I2C_SCL2_UART1_TX,
+	.sfp_port[1].pin_los = GPIO51_I2C_SDA2_UART1_RX,
+	.sfp_port[1].pin_tx_disable = GPIO_NA,
+	.sfp_port[1].sds = 0,
+	.sfp_port[1].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 }, /* GPIO 40 */
+	.reset_pin = GPIO_NA,
+	.high_leds = { .mux = LED_27 | LED_28_SYS | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	.led_sets = {
+		{ /* RJ45: Green LED (LED0) */
+			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			/* Amber LED (LED1) */
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+			0,
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT
+		}, { /* SFP PORT: SINGLE GREEN LED */
+			LEDS_10G | LEDS_5G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			LEDS_10G | LEDS_LINK,
+			0,
+			LEDS_DUPLEX | LEDS_COL
+		},
+	},
+	.led_mux_custom = 1,
+	.led_mux = {
+		0x0c,0x0d,0x0e,0x10,0x11,0x12,0x14,0x3f,0x15,0x16,0x18,0x0e,0x19,0x11,0x12,0x1a,0x15,0x16,0x1c,0x19,0x1a,0x1d,0x1d,0x1e,0x1e,0x20,0x21,0x22
+	},
+};
+
+void machine_custom_init(void)
+{
+	// Full IO-enable mask matching the OEM firmware on this board.
+	// The chip default (0x77ffff40) leaves the port 1 LED engine IO disabled,
+	// which is why port 1's LED stayed dark. Must be a whole-register write:
+	// bit 6 alone is not what the OEM sets.
+	REG_SET(RTL837X_REG_LED_GLB_IO_EN, 0x7624155b);
+	reg_bit_set(RTL837X_REG_LED_MODE, 17);
+	reg_bit_clear(RTL837X_REG_LED_MODE, 9);
+	reg_bit_clear(RTL837X_REG_LED_MODE, 7);
+}
+
+#elif defined MACHINE_SWTG018AS_A_V_2_0
+__code const struct machine machine = {
+	.machine_name = "SWTG018AS-A V2.0",
+	.isRTL8373 = 1,
+	.min_port = 0,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {1, 2, 3, 4, 5, 6, 7, 8, 9},
+	.phys_to_log_port = {0, 1, 2, 3, 4, 5, 6, 7, 8},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO38,
+	.sfp_port[0].pin_los = GPIO_NA,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO48_I2C_SCL1,
+	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.led_sets = {
+		{   /* RJ45: First LED, yellow, second LED: green */
+			LEDS_2G5 | LEDS_LINK,
+            LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			0,
+			0,
+		}, { /* SFP PORT, SINGLE GREEN LED */
+			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+			0,
+			0,
+			0,
+		}},
+	.led_mux_custom = 1,
+	.led_mux = { 0x00, 0x01, 0x04, 0x05, 0x08, // 65e0
+		     0x09, 0x0c, 0x09, 0x0d, 0x10, // 65e4
+		     0x11, 0x0e, 0x14, 0x11, 0x12, // 65e8
+		     0x15, 0x15, 0x16, 0x18, 0x19, // 65ec
+		     0x1a, 0x19, 0x1d, 0x1e, 0x1c, // 65f0
+		     0x1d, 0x20, 0x21 },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_HG0402XG_V1_1
+__code const struct machine machine = {
+	.machine_name = "HG0402XG V1.1",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+	.phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 2, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = 50,
+	.sfp_port[0].pin_los = 10,
+	.sfp_port[0].pin_tx_disable = 0xFF,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.sfp_port[1].pin_detect = 30,
+	.sfp_port[1].pin_los = 51,
+	.sfp_port[1].pin_tx_disable = 0xFF,
+	.sfp_port[1].sds = 0,
+	.sfp_port[1].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO_NA,
+	.high_leds = { .mux = LED_27 , .enable = LED_27 | LED_29 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	/* The Ethernet ports have 1 amber LED (left) and 1 green LED (right)
+	 * The SFP ports have also 1 amber LED and 1 green LED
+	 * Ethernet ports use LED-set 0, SFP ports use LED-set 1
+	 */
+	.led_sets = { { LEDS_10M | LEDS_LINK | LEDS_ACT,
+			LEDS_1G | LEDS_100M | LEDS_10M | LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+			0 },
+			{ LEDS_100M | LEDS_10M | LEDS_LINK,
+			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+			LEDS_10G | LEDS_LINK,
+			0 },
+		    },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_SWTGW218AS
+
+__code const struct machine machine = {
+	.machine_name = "SWTGW218AS 8+1 Managed Switch",
+	.isRTL8373 = 1,
+	.min_port = 0,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {1, 2, 3, 4, 5, 6, 7, 8, 9},
+	.phys_to_log_port = {0, 1, 2, 3, 4, 5, 6, 7, 8},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO54_ACL_BIT2_EN,
+	.high_leds = { .mux = LED_27 | LED_28_SYS | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.led_sets = { { LEDS_2G5 | LEDS_LINK | LEDS_ACT, // Green LED (right)
+					0, // unused
+					LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT, // Amber LED (left)
+					0
+				  }, // unused
+				  { LEDS_10G | LEDS_5G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT, // SFP LED
+					0, // unused
+					0, // unused
+					0
+				  }, // unused		    	},
+				},
+};
+
+void machine_custom_init(void) { }
+#elif defined MACHINE_LIANGUO_ZX_SWTGW215AS // Has PCB branded PCB-SWTG115AS-V2.0 but is labeled and reports as a ZX-SWTGW215AS, seems to be identical to the "real" ZX-SWTGW215AS except for the LEDs
+__code const struct machine machine = {
+	.machine_name = "Lianguo ZX-SWTGW215AS",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+	.phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO54_ACL_BIT2_EN,
+	.high_leds = { .mux = LED_27 | LED_28_SYS | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.led_sets = { { LEDS_2G5 | LEDS_LINK | LEDS_ACT, // Green LED (right)
+					0, // unused
+					LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT, // Amber LED (left)
+					0
+				  }, // unused
+				  { LEDS_10G | LEDS_5G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT, // SFP LED
+					0, // unused
+					0, // unused
+					0
+				  }, // unused		    	},
+				},
+	.led_mux_custom = 0,
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_DEFAULT_8C_1SFP
+__code const struct machine machine = {
+	.machine_name = "8+1 SFP Port Switch",
+	.isRTL8373 = 1,
+	.min_port = 0,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {1, 2, 3, 4, 5, 6, 7, 8, 9},
+	.phys_to_log_port = {0, 1, 2, 3, 4, 5, 6, 7, 8},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO_NA,
+	.high_leds = { .mux = LED_27 | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	.led_sets = { { LEDS_2G5 | LEDS_TWO_PAIR_1G | LEDS_1G | LEDS_500M | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G | LEDS_TWO_PAIR_5G | LEDS_5G | LEDS_TWO_PAIR_2G5,
+			LEDS_2G5 | LEDS_LINK,
+			LEDS_1G | LEDS_LINK,
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT },
+		    },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_TRENDNET_TEG_S562
+__code const struct machine machine = {
+	.machine_name = "Trendnet TEG-S562",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 6, 1, 2, 3, 4, 5},
+	.phys_to_log_port = {4, 5, 6, 7, 8, 3, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 1, 0, 0, 0, 0, 2},
+	.sfp_port[0].pin_detect = GPIO38,
+	.sfp_port[0].pin_los = GPIO50_I2C_SCL2_UART1_TX,
+	.sfp_port[0].pin_tx_disable = GPIO54_ACL_BIT2_EN,
+	.sfp_port[0].sds = 0,
+	.sfp_port[0].i2c = { .sda = GPIO47_I2C_SDA0, .scl = GPIO46_I2C_SCL0 },
+	.sfp_port[1].pin_detect = GPIO36_PWM_OUT,
+	.sfp_port[1].pin_los = GPIO37,
+	.sfp_port[1].pin_tx_disable = GPIO51_I2C_SDA2_UART1_RX,
+	.sfp_port[1].sds = 1,
+	.sfp_port[1].i2c = { .sda = GPIO49_I2C_SDA1, .scl = GPIO48_I2C_SCL1 },
+	.reset_pin = GPIO_NA,
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	.led_sets = {
+		{
+			0, // Unused
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT, // Green
+			LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT, // Amber
+			0 // Unused
+		},
+		{
+			0, // Unused
+			0, // Unused
+			LEDS_10G | LEDS_1G | LEDS_LINK | LEDS_ACT, // Green
+			0, // Unused
+		},
+	},
+
+};
+
+void machine_custom_init(void) { }
+
+#elif defined(MACHINE_PCB_K0402WS_V3) || defined(MACHINE_HI_K0402WS)  // Sold as a variety of devices, see doc/
+__code const struct machine machine = {
+	.machine_name = "PCB-K0402WS-V3.0",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 6, 1, 2, 3, 4, 5},
+	.phys_to_log_port = {4, 5, 6, 7, 8, 3, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 2, 0, 0, 0, 0, 1},
+	
+	// Left SFP port
+	.sfp_port[0].pin_detect = GPIO38, 
+	.sfp_port[0].pin_los = GPIO_NA, 
+	.sfp_port[0].sds = 1, 
+	.sfp_port[0].i2c =  { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 }, 
+
+	// Right SFP port
+	.sfp_port[1].pin_detect = GPIO37,
+	.sfp_port[1].pin_los = GPIO_NA, 
+	.sfp_port[1].sds = 0, 
+	.sfp_port[1].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 }, 
+
+	.reset_pin = GPIO_NA,
+	.high_leds = { .mux =  LED_28_SYS | LED_29, .enable = LED_27 | LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	.led_sets = { 
+			{
+				LEDS_2G5 | LEDS_LINK | LEDS_10M | LEDS_ACT,
+				LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT | LEDS_10G,
+				LEDS_1G | LEDS_LINK, 
+				0 
+			},
+			{  
+				LEDS_10G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK,
+				LEDS_10G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_ACT,
+				0,
+				0
+			},
+	 },
+	.led_mux_custom = 1,
+	.led_mux = {
+				0x00,0x01,0x04,0x05,0x08,0x09,0x0c,0x3f,0x0d,0x10,0x11,0x0e,0x14,0x11,0x12,0x15,0x15,0x16,0x18,0x19,0x1a,0x19,0x1d,0x1e,0x1c,0x1d,0x20,0x21
+		},
+	};
+
+void machine_custom_init(void) { 
+	reg_bit_set(RTL837X_REG_LED_GLB_IO_EN, 6);
+}
+
+#elif defined MACHINE_K0501W_V2_0
+__code const struct machine machine = {
+	.machine_name = "K0501W V2.0",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 1,
+	.log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+	.phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c =  { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+	.reset_pin = GPIO_NA,
+	.port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.led_sets = {
+		{
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+			0,
+			LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			0
+		},
+		{
+			LEDS_10G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			0,
+			0,
+			0
+		},
+	 },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_ZX310S_4T2XH
+__code const struct machine machine = {
+	.machine_name = "ZX310S-4T2XH",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 1,
+	.n_10g = 1,
+	.log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+	.phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO38,
+	.sfp_port[0].pin_los = GPIO_NA,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO48_I2C_SCL1,
+	.high_leds = { .mux =  LED_28_SYS, .enable = LED_27 | LED_28_SYS | LED_29 },
+	.led_mux_custom = 1,
+	.led_mux = { 0x00, 0x01, 0x04, 0x05, 0x08, // 65e0
+		     0x09, 0x0c, 0x3f, 0x0d, 0x10, // 65e4
+		     0x11, 0x0e, 0x14, 0x11, 0x12, // 65e8
+		     0x15, 0x15, 0x16, 0x18, 0x19, // 65ec
+		     0x1a, 0x19, 0x1d, 0x1e, 0x1c, // 65f0
+		     0x1d, 0x20, 0x21 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	/* Ports 1-4: Orange: 2.5GBit, Green: 10/100/1000MBit
+	 * Port 5: Blue: 10GBit, Green: 10Mbit-5GBit
+	 * SFP-port: Blue: 10GBit, Green 100MBit-5GBit
+	 */
+	.led_sets = { { LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+			LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			LEDS_DUPLEX,
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT },
+		      {
+			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT | LEDS_5G,
+			LEDS_LINK | LEDS_ACT | LEDS_10G,
+			LEDS_2G5 | LEDS_LINK,
+			LEDS_COL | LEDS_DUPLEX
+		      }
+		    },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_STEAMEMO_IG204_V1
+__code const struct machine machine = {
+	.machine_name = "Steamemo IG204 V1",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 2,
+	.log_to_phys_port = {0, 0, 0, 6, 1, 2, 3, 4, 5},
+	.phys_to_log_port = {4, 5, 6, 7, 8, 3, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 2, 0, 0, 0, 0, 1},
+	// Left SFP port (5)
+	// LED pin 9
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+	.sfp_port[0].pin_los = GPIO37,
+	.sfp_port[0].pin_tx_disable = GPIO_NA,
+	.sfp_port[0].sds = 1,
+	.sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+	// Right SFP port (6)
+	// LED pin 24
+	.sfp_port[1].pin_detect = GPIO50_I2C_SCL2_UART1_TX,
+	.sfp_port[1].pin_los = GPIO51_I2C_SDA2_UART1_RX,
+	.sfp_port[1].pin_tx_disable = GPIO_NA,
+	.sfp_port[1].sds = 0,
+	.sfp_port[1].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 },
+	.reset_pin = GPIO_NA,
+	.high_leds = { .mux =  LED_27 | LED_28_SYS | LED_29, .enable = LED_28_SYS | LED_29 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	.led_sets = {
+			{
+				// RJ45 Amber LED (left)
+				LEDS_2G5 | LEDS_LINK,
+				// RJ45 Green LED (Right)
+				LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+				0,
+				0,
+			},
+			{
+				// SFP LED
+				LEDS_10G | LEDS_5G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT,
+				0, // unused
+				0, // unused
+				0
+			},
+		},
+	.led_mux_custom = 1,
+	.led_mux = {
+		0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x0f, 0x20, 0x0d, 0x0e, 0x10, 0x11, 0x12, 0x14, 0x15, 0x16, 0x18, 0x19, 0x1a, 0x1c, 0x1d, 0x1e, 0x0c, 0x21, 0x22, 0x23
+	},
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_HI_K0801WS
+__code const struct machine machine = {
+    .machine_name = "Hi-Source HI-k0801WS",
+    .isRTL8373 = 1,
+    .min_port = 0,
+    .max_port = 8,
+    .n_sfp = 1,
+    .log_to_phys_port = {1, 2, 3, 4, 5, 6, 7, 8, 9},
+    .phys_to_log_port = {0, 1, 2, 3, 4, 5, 6, 7, 8},
+    .is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+
+    .sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+    .sfp_port[0].pin_los = GPIO37,
+    .sfp_port[0].pin_tx_disable = GPIO_NA,
+    .sfp_port[0].sds = 1,
+    .sfp_port[0].i2c = {
+        .sda = GPIO39_I2C_SDA4,
+        .scl = GPIO40_I2C_SCL3_MDC1
+    },
+
+    .reset_pin = GPIO_NA,
+
+    .high_leds = {
+        .mux = LED_27 | LED_29,
+        .enable = LED_28_SYS | LED_29
+    },
+
+    /* Ports 1-8 use set 0, port 9 SFP uses set 1 */
+    .port_led_set = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+
+    .led_sets = {
+        {   /* Set 0: RJ45 copper ports
+             * Amber = 2.5G
+             * Green = 1G/100M/10M with activity
+             */
+            LEDS_2G5 | LEDS_LINK | LEDS_ACT, /* Amber */
+            0,
+            LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT, /* Green */
+            0
+        },
+        {   /* Set 1: SFP port, single green LED for all valid speeds */
+            LEDS_10G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+            0,
+            0,
+            0
+        },
+    },
+};
+
+void machine_custom_init(void) { }
+
+#elif defined MACHINE_FNS1200P
+__code const struct machine machine = {
+    .machine_name = "FNS-1200P",
+    .isRTL8373 = 0,
+    .min_port = 3,
+    .max_port = 8,
+    .n_sfp = 2,
+    .log_to_phys_port = {0, 0, 0, 6, 1, 2, 3, 4, 5},
+    .phys_to_log_port = {4, 5, 6, 7, 8, 3, 0, 0, 0},
+    .is_sfp = {0, 0, 0, 2, 0, 0, 0, 0, 1},
+
+    /* Left SFP (logical 8, SDS1): GPIO30=ModAbs, GPIO37=RX_LOS */
+    .sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+    .sfp_port[0].pin_los = GPIO37,
+    .sfp_port[0].pin_tx_disable = GPIO_NA,
+    .sfp_port[0].sds = 1,
+    .sfp_port[0].i2c = { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+    /* Right SFP (logical 3, SDS0): GPIO50=ModAbs, GPIO51=RX_LOS */
+    .sfp_port[1].pin_detect = GPIO50_I2C_SCL2_UART1_TX,
+    .sfp_port[1].pin_los = GPIO51_I2C_SDA2_UART1_RX,
+    .sfp_port[1].pin_tx_disable = GPIO_NA,
+    .sfp_port[1].sds = 0,
+    .sfp_port[1].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+    .reset_pin = GPIO_NA,
+
+    .high_leds = { .mux = LED_27 | LED_28_SYS | LED_29, .enable = LED_28_SYS | LED_29 },
+
+    /* Copper ports use SET0; SFP ports use SET1 */
+    .port_led_set = {0, 0, 0, 1, 0, 0, 0, 0, 1},
+
+    .led_sets = {
+        {   /* SET0: copper — LED0=amber (2.5G), LED2=green (1G/100M/10M) */
+            LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+            0,
+            LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+            0
+        },
+        {   /* SET1: SFP — all speeds link/act */
+            LEDS_10G | LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+            0,
+            0, 0
+        },
+    },
+
+    .led_mux_custom = 1,
+    .led_mux = {
+        0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f,  /* GPIO0-7: unused */
+        0x0f, 0x0c, 0x0d, 0x0e, 0x10, 0x11, 0x12,          /* GPIO8-14 */
+        0x14, 0x15, 0x16, 0x18, 0x19, 0x1a,                 /* GPIO15-20 */
+        0x1c, 0x1d, 0x1e, 0x20, 0x21, 0x22, 0x23            /* GPIO21-27 */
+    },
+};
+
+void machine_custom_init(void)
+{
+    reg_bit_set(RTL837X_REG_LED_GLB_IO_EN, 6);
+}
+
+
+#elif defined MACHINE_PCB_SWTG024AS_A_2_0_1
+__code const struct machine machine = {
+    .machine_name = "PCB-SWTG024AS-A-2.0.1",
+    .isRTL8373 = 0,
+    .min_port = 3,
+    .max_port = 8,
+    .n_sfp = 2,
+    .log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+    .phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+    .is_sfp = {0, 0, 0, 1, 0, 0, 0, 0, 2},
+
+    // SFP port on SDS0 / logical port 3
+    .sfp_port[0].pin_detect = GPIO37,
+    .sfp_port[0].pin_los = GPIO_NA,
+    .sfp_port[0].pin_tx_disable = GPIO_NA,
+    .sfp_port[0].sds = 0,
+    .sfp_port[0].i2c = { .sda = GPIO41_I2C_SDA3_MDIO1, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+    // SFP port on SDS1 / logical port 8
+    .sfp_port[1].pin_detect = GPIO38,
+    .sfp_port[1].pin_los = GPIO_NA,
+    .sfp_port[1].pin_tx_disable = GPIO_NA,
+    .sfp_port[1].sds = 1,
+    .sfp_port[1].i2c =  { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+    .reset_pin = GPIO_NA,
+    .high_leds = { .mux =  LED_28_SYS | LED_29, .enable = LED_27 | LED_28_SYS | LED_29 },
+    .port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+    .led_sets = {
+                    {
+                            LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+                            LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+                            LEDS_DUPLEX,
+                            LEDS_2G5 | LEDS_LINK | LEDS_ACT
+                    },
+                    {
+                            LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT,
+                            LEDS_10G | LEDS_LINK | LEDS_ACT,
+                            LEDS_2G5 | LEDS_LINK,
+                            LEDS_COL | LEDS_DUPLEX
+                    },
+     },
+    .led_mux_custom = 1,
+    .led_mux = {
+                            0x00,0x01,0x04,0x05,0x08,0x09,0x0c,0x3f,0x0d,0x10,0x11,0x0e,0x14,0x11,0x12,0x15,0x15,0x16,0x18,0x19,0x1a,0x19,0x1d,0x1e,0x1c,0x1d,0x20,0x21
+            },
+    };
+
+void machine_custom_init(void)
+{
+    reg_bit_set(RTL837X_REG_LED_GLB_IO_EN, 6);
+    reg_bit_set(RTL837X_REG_LED_MODE, 17);
+    reg_bit_clear(RTL837X_REG_LED_MODE, 9);
+    reg_bit_clear(RTL837X_REG_LED_MODE, 7);
+}
+
+#elif defined MACHINE_SWTG024AS_A_2_0_1_5C_1SFP
+__code const struct machine machine = {
+    .machine_name = "SWTG024AS-A-V2.0.1-5C-1SFP",
+    .isRTL8373 = 0,
+    .min_port = 3,
+    .max_port = 8,
+    .n_sfp = 1,
+    .log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+    .phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+    .is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO38,
+    .sfp_port[0].pin_los = GPIO_NA,
+    .sfp_port[0].pin_tx_disable = GPIO_NA,
+    .sfp_port[0].sds = 1,
+    .sfp_port[0].i2c =  { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+    .reset_pin = GPIO_NA,
+    .high_leds = { .mux =  LED_28_SYS | LED_29, .enable = LED_27 | LED_28_SYS | LED_29 },
+    .port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	/* Ports 1-5 RJ45 use set 0, port 9 SFP uses set 1 
+	 * Ports 1-5: Green: 2.5GBit, Amber: 10/100/1000MBit
+	 * SFP-port: Blue: 10GBit, Green: 100MBit-2.5GBit
+	 */
+    .led_sets = {
+                    {
+                            LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+                            LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+                            LEDS_DUPLEX,
+                            LEDS_2G5 | LEDS_LINK | LEDS_ACT
+                    },
+                    {
+                            LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT,
+                            LEDS_10G | LEDS_LINK | LEDS_ACT,
+                            LEDS_2G5 | LEDS_LINK,
+                            LEDS_COL | LEDS_DUPLEX
+                    },
+     },
+    .led_mux_custom = 1,
+    .led_mux = {
+                            0x00,0x01,0x04,0x05,0x08,0x09,0x0c,0x3f,0x0d,0x10,0x11,0x0e,0x14,0x11,0x12,0x15,0x15,0x16,0x18,0x19,0x1a,0x19,0x1d,0x1e,0x1c,0x1d,0x20,0x21
+            },
+    };
+
+void machine_custom_init(void)
+{
+    uint16_t pval;
+
+    reg_bit_set(RTL837X_REG_LED_GLB_IO_EN, 6);
+    reg_bit_set(RTL837X_REG_LED_MODE, 17);
+    reg_bit_clear(RTL837X_REG_LED_MODE, 9);
+    reg_bit_clear(RTL837X_REG_LED_MODE, 7);
+
+    // OEM firmware sets these companion SDS0 polarity bits for the RTL8221B.
+    sds_read(0, 0, 0);
+    pval = SFR_DATA_U16;
+    sds_write_v(0, 0, 0, pval | 0x100);
+
+    sds_read(0, 6, 2);
+    pval = SFR_DATA_U16;
+    sds_write_v(0, 6, 2, pval | 0x4000);
+}
+
+#elif defined MACHINE_SWTG024AS_V2_0
+__code const struct machine machine = {
+    .machine_name = "SWTG024AS-V2.0",
+    .isRTL8373 = 0,
+    .min_port = 3,
+    .max_port = 8,
+    .n_sfp = 1,
+    .log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+    .phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+    .is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 1},
+	.sfp_port[0].pin_detect = GPIO30_ACL_BIT3_EN,
+    .sfp_port[0].pin_los = GPIO37,
+    .sfp_port[0].pin_tx_disable = GPIO_NA,
+    .sfp_port[0].sds = 1,
+    .sfp_port[0].i2c =  { .sda = GPIO39_I2C_SDA4, .scl = GPIO40_I2C_SCL3_MDC1 },
+
+    .reset_pin = GPIO_NA,
+    .high_leds = { .mux =  LED_28_SYS | LED_29, .enable = LED_27 | LED_28_SYS | LED_29 },
+    .port_led_set = { 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	/* Ports 1-5 RJ45 use set 0, port 9 SFP uses set 1 
+	 * Ports 1-5: Green: 2.5GBit, Amber: 10/100/1000MBit
+	 * SFP-port: Blue: 10GBit, Amber: 100MBit-2.5GBit
+	 */
+    .led_sets = {
+                    {
+                            LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+                            LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+                            LEDS_DUPLEX,
+                            LEDS_2G5 | LEDS_LINK | LEDS_ACT
+                    },
+                    {
+                            LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT,
+                            LEDS_10G | LEDS_LINK | LEDS_ACT,
+                            LEDS_2G5 | LEDS_LINK,
+                            LEDS_COL | LEDS_DUPLEX
+                    },
+     },
+    .led_mux_custom = 1,
+    .led_mux = {
+                            0x00,0x01,0x04,0x05,0x08,0x09,0x0c,0x3f,0x0d,0x10,0x11,0x0e,0x14,0x11,0x12,0x15,0x15,0x16,0x18,0x19,0x1a,0x19,0x1d,0x1e,0x1c,0x1d,0x20,0x21
+            },
+    };
+
+void machine_custom_init(void)
+{
+    uint16_t pval;
+
+    reg_bit_set(RTL837X_REG_LED_GLB_IO_EN, 6);
+    reg_bit_set(RTL837X_REG_LED_MODE, 17);
+    reg_bit_clear(RTL837X_REG_LED_MODE, 9);
+    reg_bit_clear(RTL837X_REG_LED_MODE, 7);
+
+    // OEM firmware sets these companion SDS0 polarity bits for the RTL8221B.
+    sds_read(0, 0, 0);
+    pval = SFR_DATA_U16;
+    sds_write_v(0, 0, 0, pval | 0x100);
+
+    sds_read(0, 6, 2);
+    pval = SFR_DATA_U16;
+    sds_write_v(0, 6, 2, pval | 0x4000);
+}
+
+#elif defined MACHINE_ZX310S_4T2XT
+__code const struct machine machine = {
+	.machine_name = "ZX310S_4T2XT",
+	.isRTL8373 = 0,
+	.min_port = 3,
+	.max_port = 8,
+	.n_sfp = 0,
+	.n_10g = 2,
+	.log_to_phys_port = {0, 0, 0, 5, 1, 2, 3, 4, 6},
+	.phys_to_log_port = {4, 5, 6, 7, 3, 8, 0, 0, 0},
+	.is_sfp = {0, 0, 0, 0, 0, 0, 0, 0, 0},
+	.reset_pin = GPIO48_I2C_SCL1,
+	.high_leds = { .mux = LED_28_SYS | LED_29, .enable = LED_27 | LED_28_SYS | LED_29 },
+	.led_mux_custom = 1,
+	.led_mux = { 0x00, 0x01, 0x04, 0x05, 0x08, // 65e0
+		     0x09, 0x0c, 0x3f, 0x0d, 0x10, // 65e4
+		     0x11, 0x0e, 0x14, 0x11, 0x12, // 65e8
+		     0x15, 0x15, 0x16, 0x18, 0x19, // 65ec
+		     0x1a, 0x19, 0x1d, 0x1e, 0x1c, // 65f0
+		     0x1d, 0x20, 0x21 },
+	.port_led_set = { 0, 0, 0, 1, 0, 0, 0, 0, 1},
+	/* Ports 1-4: Green: 2.5GBit, Orange: 10/100/1000MBit
+	 * Ports 5-6: Green: 10GBit, Orange: <= 5GBit
+	 */
+	.led_sets = { { LEDS_2G5 | LEDS_LINK | LEDS_ACT,
+			LEDS_1G | LEDS_100M | LEDS_10M | LEDS_LINK | LEDS_ACT,
+			LEDS_DUPLEX,
+			LEDS_2G5 | LEDS_LINK | LEDS_ACT },
+		      {
+			LEDS_2G5 | LEDS_1G | LEDS_100M | LEDS_LINK | LEDS_ACT,
+			LEDS_LINK | LEDS_ACT | LEDS_10G | LEDS_5G,
+			LEDS_2G5 | LEDS_LINK,
+			LEDS_COL | LEDS_DUPLEX
+		      }
+		    },
+};
+
+void machine_custom_init(void) {
+	// For this device, the reset value of RTL837X_PIN_MUX_0 is 0x30000000,
+	// which would disables all LEDS, enable them manually:
+	REG_SET(RTL837X_PIN_MUX_0, 0x30db68bf);
+}
+
+#else
+	#error "Please select a machine type in machine.h"
+#endif
